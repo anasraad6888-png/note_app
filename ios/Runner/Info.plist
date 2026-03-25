@@ -66,5 +66,11 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>نحتاج للوصول إلى معرض الصور لحفظ صفحات الملاحظات كصور.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>نحتاج للوصول إلى معرض الصور لحفظ صفحات الملاحظات كصور.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>We need access to microphone to record notes.</string>
 </dict>
 </plist>
