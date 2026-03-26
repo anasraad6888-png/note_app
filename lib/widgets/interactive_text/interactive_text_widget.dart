@@ -171,6 +171,7 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
     if (widget.textData.isEditing) {
       isSelected = true;
       isEditing = true;
+      _isInitializing = true;
       // Guarantee only the first evaluation bounds the element natively isolating logic locally
       widget.textData.isEditing = false;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -179,12 +180,17 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
           _quillController,
           toggleInspector: _toggleTextInspector,
         );
-        if (mounted) _focusNode.requestFocus();
+        if (mounted) {
+          _isInitializing = false;
+          _focusNode.requestFocus();
+        }
       });
     }
   }
 
   void _onCanvasControllerChanged() {
+    if (_isInitializing) return;
+
     if (isEditing) {
       if (widget.canvasCtrl?.activeEditingText?.id != widget.textData.id) {
         if (mounted) {
