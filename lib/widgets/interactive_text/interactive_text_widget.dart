@@ -505,7 +505,8 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
                 // Vertical Side-Dock Toolbar Native Injection
                 if (isSelected && !widget.readOnly)
                   Positioned(
-                    top: topOffset, // Align to top of text box natively
+                    // Tool height: 28(pad) + 38*3(btns) + 34(trash) + 8*4(gaps) + 16(gap) + 1.5*2(divs) = 227
+                    top: topOffset + (widget.textData.rect.height / 2) - 113.5, 
                     left: hOffset - 56, // Dock securely to the left edge universally
                     child: ExcludeFocus(
                       child: TapRegion(
