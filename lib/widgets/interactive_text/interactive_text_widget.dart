@@ -400,37 +400,6 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
                   ),
                 ),
 
-                // Delete Button (Top Middle)
-                if (isSelected && !widget.readOnly)
-                  Positioned(
-                    left: hOffset + (widget.textData.rect.width / 2) - 15,
-                    top: topOffset - 35,
-                    child: GestureDetector(
-                      onTap: () {
-                        if (widget.canvasCtrl?.activeEditingText?.id ==
-                            widget.textData.id) {
-                          widget.canvasCtrl?.stopEditingText();
-                        }
-                        widget.onDelete();
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: Colors.redAccent,
-                          shape: BoxShape.circle,
-                          boxShadow: const [
-                            BoxShadow(color: Colors.black26, blurRadius: 4),
-                          ],
-                        ),
-                        child: const Icon(
-                          LucideIcons.trash2,
-                          size: 16,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-
                 // Drag Handle (Top Left)
                 if (isSelected && !widget.readOnly)
                   Positioned(
@@ -533,32 +502,24 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
                   ),
                 ],
 
-                // Single Row Toolbar Native Injection above the rotation bindings smoothly
+                // Vertical Side-Dock Toolbar Native Injection
                 if (isSelected && !widget.readOnly)
                   Positioned(
-                    top:
-                        topOffset -
-                        90, // Places the layout cleanly above the boundaries handles
-                    left: 0,
-                    right: 0,
-                    child: Center(
-                      child: ExcludeFocus(
-                        child: TapRegion(
-                          groupId: tapGroupId,
-                          child: Container(
-                          height: 55,
-                          constraints: const BoxConstraints(
-                            maxWidth: 250,
-                          ), // Narrowed for inspector only
+                    top: topOffset, // Align to top of text box natively
+                    left: hOffset - 56, // Dock securely to the left edge universally
+                    child: ExcludeFocus(
+                      child: TapRegion(
+                        groupId: tapGroupId,
+                        child: Container(
+                          width: 48, // Slim pill aesthetic
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 4,
-                            vertical: 4,
-                          ),
+                            vertical: 14,
+                          ), // Vertical padding
                           decoration: BoxDecoration(
                             color: widget.isDarkMode
-                                ? const Color(0xFF2C2C2E)
-                                : Colors.white,
-                            borderRadius: BorderRadius.circular(28),
+                                ? const Color(0xFF2C2C2E).withAlpha(240) // Deep grey matching UI request
+                                : Colors.white.withAlpha(240),           // Frosted white
+                            borderRadius: BorderRadius.circular(30),     // Pill shape
                             border: Border.all(
                               color: widget.isDarkMode
                                   ? Colors.white10
@@ -570,47 +531,103 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
                                 color: widget.isDarkMode
                                     ? Colors.black45
                                     : Colors.black12,
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
+                                blurRadius: 15,
+                                spreadRadius: 2,
+                                offset: const Offset(0, 6),
                               ),
                             ],
                           ),
-                          child: Row(
+                          child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              // Custom Widget Stylization Bindings
-                              IconButton(
-                                tooltip: "لتحرير النص",
-                                icon: Text(
-                                  "Aa",
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                    color: widget.isDarkMode
-                                        ? Colors.white
-                                        : Colors.black87,
+                              // Text Format (Aa)
+                              Tooltip(
+                                message: "تنسيق النص",
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(20),
+                                  onTap: () => _toggleTextInspector(initialTab: 0),
+                                  child: Container(
+                                    width: 38,
+                                    height: 38,
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      "Aa",
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w800,
+                                        color: widget.isDarkMode
+                                            ? Colors.white
+                                            : Colors.black87,
+                                        letterSpacing: -0.5,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                                onPressed: () => _toggleTextInspector(initialTab: 0),
                               ),
-                              Container(width: 1, height: 20, color: widget.isDarkMode ? Colors.white24 : Colors.black12, margin: const EdgeInsets.symmetric(horizontal: 4)),
-                              IconButton(
-                                tooltip: "تنسيق الصندوق",
-                                icon: Icon(LucideIcons.box, size: 20, color: widget.isDarkMode ? Colors.white : Colors.black87),
-                                onPressed: () => _toggleTextInspector(initialTab: 1),
+                              const SizedBox(height: 8),
+                              Container(height: 1.5, width: 22, color: widget.isDarkMode ? Colors.white24 : Colors.black12),
+                              const SizedBox(height: 8),
+                              
+                              // Box Format (Cube)
+                              Tooltip(
+                                message: "تنسيق الصندوق",
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(20),
+                                  onTap: () => _toggleTextInspector(initialTab: 1),
+                                  child: Container(
+                                    width: 38,
+                                    height: 38,
+                                    alignment: Alignment.center,
+                                    child: Icon(LucideIcons.box, size: 22, color: widget.isDarkMode ? Colors.white : Colors.black87),
+                                  ),
+                                ),
                               ),
-                              Container(width: 1, height: 20, color: widget.isDarkMode ? Colors.white24 : Colors.black12, margin: const EdgeInsets.symmetric(horizontal: 4)),
-                              IconButton(
-                                tooltip: "الأنماط الجاهزة",
-                                icon: Icon(LucideIcons.bookmark, size: 20, color: widget.isDarkMode ? Colors.white : Colors.black87),
-                                onPressed: () => _toggleTextInspector(initialTab: 2),
+                              const SizedBox(height: 8),
+                              Container(height: 1.5, width: 22, color: widget.isDarkMode ? Colors.white24 : Colors.black12),
+                              const SizedBox(height: 8),
+                              
+                              // Styles (Bookmark)
+                              Tooltip(
+                                message: "الأنماط الجاهزة",
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(20),
+                                  onTap: () => _toggleTextInspector(initialTab: 2),
+                                  child: Container(
+                                     width: 38,
+                                     height: 38,
+                                     alignment: Alignment.center,
+                                     child: Icon(LucideIcons.bookmark, size: 22, color: widget.isDarkMode ? Colors.white : Colors.black87),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              
+                              // Delete Button (Red Trash)
+                              Tooltip(
+                                message: "حذف الصندوق",
+                                child: GestureDetector(
+                                  onTap: () {
+                                    if (widget.canvasCtrl?.activeEditingText?.id == widget.textData.id) {
+                                      widget.canvasCtrl?.stopEditingText();
+                                    }
+                                    widget.onDelete();
+                                  },
+                                  child: Container(
+                                    width: 34,
+                                    height: 34,
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFFFF4B4B), // Striking Red matching screenshot
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(LucideIcons.trash2, size: 18, color: Colors.white),
+                                  ),
+                                ),
                               ),
                             ],
                           ),
                         ),
                       ),
                     ),
-                  ),
                   ),
               ],
             ),
