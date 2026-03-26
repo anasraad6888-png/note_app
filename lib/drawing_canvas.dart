@@ -530,7 +530,9 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
           if (canvasCtrl.isTextMode)
             Positioned.fill(
               child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onTapUp: (details) => canvasCtrl.addTextAt(index, details.localPosition),
+                child: Container(color: Colors.transparent),
               ),
             ),
           // Images
@@ -858,8 +860,10 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
         if (!isReadOnly && canvasCtrl.isTextMode)
           Positioned.fill(
             child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
               onTapUp: (details) =>
                   canvasCtrl.addTextAt(index, details.localPosition),
+              child: Container(color: Colors.transparent),
             ),
           ),
         ...canvasCtrl.getSyncedImages(index).asMap().entries.map(
