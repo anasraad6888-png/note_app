@@ -580,15 +580,18 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
                                     width: 32,
                                     height: 32,
                                     alignment: Alignment.center,
-                                    child: Text(
-                                      "Aa",
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w800,
-                                        color: widget.isDarkMode
-                                            ? Colors.white
-                                            : Colors.black87,
-                                        letterSpacing: -0.5,
+                                    child: Transform.rotate(
+                                      angle: -widget.textData.angle,
+                                      child: Text(
+                                        "Aa",
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w800,
+                                          color: widget.isDarkMode
+                                              ? Colors.white
+                                              : Colors.black87,
+                                          letterSpacing: -0.5,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -608,7 +611,10 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
                                     width: 32,
                                     height: 32,
                                     alignment: Alignment.center,
-                                    child: Icon(LucideIcons.box, size: 18, color: widget.isDarkMode ? Colors.white : Colors.black87),
+                                    child: Transform.rotate(
+                                      angle: -widget.textData.angle,
+                                      child: Icon(LucideIcons.box, size: 18, color: widget.isDarkMode ? Colors.white : Colors.black87),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -626,7 +632,10 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
                                      width: 32,
                                      height: 32,
                                      alignment: Alignment.center,
-                                     child: Icon(LucideIcons.bookmark, size: 18, color: widget.isDarkMode ? Colors.white : Colors.black87),
+                                     child: Transform.rotate(
+                                       angle: -widget.textData.angle,
+                                       child: Icon(LucideIcons.bookmark, size: 18, color: widget.isDarkMode ? Colors.white : Colors.black87),
+                                     ),
                                   ),
                                 ),
                               ),
@@ -649,7 +658,10 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
                                       color: Color(0xFFFF4B4B), // Striking Red matching screenshot
                                       shape: BoxShape.circle,
                                     ),
-                                    child: const Icon(LucideIcons.trash2, size: 16, color: Colors.white),
+                                    child: Transform.rotate(
+                                      angle: -widget.textData.angle,
+                                      child: const Icon(LucideIcons.trash2, size: 16, color: Colors.white),
+                                    ),
                                   ),
                                 ),
                               ),
