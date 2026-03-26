@@ -450,24 +450,29 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
                     child: GestureDetector(
                       onPanUpdate: (details) {
                         setState(() {
-                          double cx = hOffset + (widget.textData.rect.width / 2);
-                          double cy = topOffset + (widget.textData.rect.height / 2);
+                          final RenderBox? box = context.findRenderObject() as RenderBox?;
+                          if (box != null) {
+                            // Map the absolute screen touch into the rotated bounding box natively
+                            Offset localPt = box.globalToLocal(details.globalPosition);
 
-                          // Local-space pointer angle relative to center natively bounds the math.
-                          // Without this, local frame rotation loops create massive drag inversions.
-                          double fingerAngle = math.atan2(
-                            details.localPosition.dy - cy,
-                            details.localPosition.dx - cx,
-                          );
+                            double cx = hOffset + (widget.textData.rect.width / 2);
+                            double cy = topOffset + (widget.textData.rect.height / 2);
 
-                          // Static angle of the top-right corner in local space
-                          double handleAngle = math.atan2(
-                            -(widget.textData.rect.height / 2) - 0.5,
-                            (widget.textData.rect.width / 2) - 0.5,
-                          );
+                            // Local-space pointer angle relative to center exactly matched to screen physics
+                            double fingerAngle = math.atan2(
+                              localPt.dy - cy,
+                              localPt.dx - cx,
+                            );
 
-                          // Absorb the exact deviation the finger caused in local frame into the global orientation
-                          widget.textData.angle += (fingerAngle - handleAngle);
+                            // Static angle of the top-right corner in local space
+                            double handleAngle = math.atan2(
+                              -(widget.textData.rect.height / 2) - 0.5,
+                              (widget.textData.rect.width / 2) - 0.5,
+                            );
+
+                            // Absorb the exact deviation the finger caused in local frame into the global orientation
+                            widget.textData.angle += (fingerAngle - handleAngle);
+                          }
                         });
                       },
                       onPanEnd: (_) => widget.onSave(),
