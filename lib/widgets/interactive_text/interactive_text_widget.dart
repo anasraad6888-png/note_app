@@ -9,6 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../pro_compact_color_picker.dart';
 import '../../controllers/canvas_controller.dart';
 import '../canvas_widgets/text_toolbar_dock.dart';
+import '../canvas_widgets/drawing_tools_row.dart';
 part 'interactive_text_inspector.dart';
 
 
@@ -282,6 +283,7 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
           groupId: tapGroupId,
           onTapOutside: (_) async {
             if (TextToolbarDock.isMenuOpen) return;
+            if (DrawingToolsRow.isColorPickerOpen) return;
             // Dropdowns & Dialogs push new routes. Ignore outside taps if a popup is active.
             if (ModalRoute.of(context)?.isCurrent != true) return;
 

@@ -1398,7 +1398,7 @@ return Flex(
     );
   }
 
-  static bool _isColorPickerOpen = false;
+  static bool isColorPickerOpen = false;
 
   static void showPopoverColorPicker({
     required BuildContext context,
@@ -1409,8 +1409,8 @@ return Flex(
     CanvasController? canvasCtrl,
     bool useDialog = false,
   }) async {
-    if (_isColorPickerOpen) return;
-    _isColorPickerOpen = true;
+    if (isColorPickerOpen) return;
+    isColorPickerOpen = true;
 
     final RenderBox renderBox = context.findRenderObject() as RenderBox;
     final Offset globalPosition = renderBox.localToGlobal(Offset.zero);
@@ -1426,7 +1426,7 @@ return Flex(
       }
     }
 
-    showCustomPopover(
+    await showCustomPopover(
       context: context,
       isTopHalf: isTopHalf,
       alignment: popoverAlignment,
@@ -1443,7 +1443,7 @@ return Flex(
 
     // Wait for the exit animation to finish before releasing the lock
     await Future.delayed(const Duration(milliseconds: 200));
-    _isColorPickerOpen = false;
+    isColorPickerOpen = false;
   }
 
   static void _showStrokeWidthPopover({

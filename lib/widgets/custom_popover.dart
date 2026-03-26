@@ -21,7 +21,7 @@ Future<void> showCustomPopover({
   // التحقق من حالة الثيم لضبط الظل والحدود
   final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
-  SmartDialog.showAttach(
+  await SmartDialog.showAttach(
     tag: 'custom_popover',
     targetContext: context,
     // التوجيه الذكي
