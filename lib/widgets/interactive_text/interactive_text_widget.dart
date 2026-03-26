@@ -101,6 +101,7 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
   @override
   void initState() {
     super.initState();
+    widget.canvasCtrl?.addListener(_onCanvasControllerChanged);
     _focusNode = FocusNode();
     _focusNode.addListener(() {
       if (_focusNode.hasFocus) {
@@ -182,8 +183,28 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
     }
   }
 
+  void _onCanvasControllerChanged() {
+    if (isSelected || isEditing) {
+      if (widget.canvasCtrl?.activeEditingText?.id != widget.textData.id) {
+        if (mounted) {
+          setState(() {
+            isSelected = false;
+            isEditing = false;
+          });
+          _removeInspectorOverlay();
+          if (_quillController.document.toPlainText().trim().isEmpty) {
+            widget.onDelete();
+          } else {
+            widget.onSave();
+          }
+        }
+      }
+    }
+  }
+
   @override
   void dispose() {
+    widget.canvasCtrl?.removeListener(_onCanvasControllerChanged);
     _removeInspectorOverlay();
     _quillController.dispose();
     _focusNode.dispose();
