@@ -104,6 +104,15 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
     super.initState();
     widget.canvasCtrl?.addListener(_onCanvasControllerChanged);
     _focusNode = FocusNode();
+    _focusNode.addListener(() {
+      if (_focusNode.hasFocus) {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) {
+            widget.canvasCtrl?.panToVisibleSafeZone(context);
+          }
+        });
+      }
+    });
 
     if (widget.textData.deltaJson != null &&
         widget.textData.deltaJson!.isNotEmpty) {

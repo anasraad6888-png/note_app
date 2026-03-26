@@ -94,6 +94,41 @@ class CanvasController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void panToVisibleSafeZone(BuildContext context) {
+    if (isPanZoomMode) return;
+    try {
+      final mediaQuery = MediaQuery.of(context);
+      final screenHeight = mediaQuery.size.height;
+      final keyboardHeight = mediaQuery.viewInsets.bottom;
+      if (keyboardHeight < 50) return; // Ignore if keyboard is not active
+
+      final safeZoneTop = 140.0; // Top toolbars padding
+      final safeZoneBottom = screenHeight - keyboardHeight;
+      final safeZoneCenterY = (safeZoneTop + safeZoneBottom) / 2;
+
+      final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
+      if (renderBox == null) return;
+
+      final Offset screenTopLeft = renderBox.localToGlobal(Offset.zero);
+      final matrix = transformationController.value;
+      final double scale = matrix.getMaxScaleOnAxis();
+      
+      // InteractiveTextWidget has an absolute internal topOffset of 150 (scaled globally)
+      final double visualTextTopY = screenTopLeft.dy + (150.0 * scale);
+
+      // Only pan if the text box is colliding with the keyboard or hidden under top toolbars
+      if (visualTextTopY > safeZoneBottom - 50 || visualTextTopY < safeZoneTop + 50) {
+        final double dyDifference = safeZoneCenterY - visualTextTopY;
+        
+        // Translate the camera matrix inversely scaled to local coordinates
+        transformationController.value = matrix.clone()..translate(0.0, dyDifference / scale);
+        notifyListeners();
+      }
+    } catch (e) {
+      // Gracefully ignore pan matrix calculation errors
+    }
+  }
+
   final ScreenshotController screenshotController = ScreenshotController();
   Offset rulerPosition = const Offset(350, 450);
   double rulerAngle = 0.0;
