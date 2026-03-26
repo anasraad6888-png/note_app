@@ -418,6 +418,16 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
           if (!canvasCtrl.isPointInSelectionUI(event.localPosition)) {
             canvasCtrl.startLasso(event.localPosition);
           }
+        } else if (canvasCtrl.isTextMode) {
+          bool isHit = false;
+          final expandedRectRadius = const EdgeInsets.all(50.0);
+          for (var txt in canvasCtrl.getSyncedTexts(index)) {
+             // Add a small 20px padding to the exact rect to generously catch taps on borders
+             if (expandedRectRadius.inflateRect(txt.rect).contains(event.localPosition)) {
+                isHit = true; break;
+             }
+          }
+          if (!isHit) canvasCtrl.addTextAt(index, event.localPosition);
         } else if (!canvasCtrl.isTextMode) {
           canvasCtrl.addPoint(index, event.localPosition, globalPosition: event.position, pressure: event.pressure);
           canvasCtrl.startPenHoldTimer(index, event.localPosition, globalPosition: event.position, pressure: event.pressure);
@@ -526,16 +536,8 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
               size: const Size(_kInfiniteCanvasSize, _kInfiniteCanvasSize),
             ),
           ),
-          // Text mode tap layer
-          if (canvasCtrl.isTextMode)
-            Positioned.fill(
-              child: Listener(
-                behavior: HitTestBehavior.opaque,
-                onPointerDown: (event) => canvasCtrl.addTextAt(index, event.localPosition),
-                child: Container(color: Colors.transparent),
-              ),
-            ),
           // Images
+
           ...canvasCtrl.getSyncedImages(index).asMap().entries.map(
             (entry) => Positioned(
               key: ValueKey('infimg_${index}_${entry.key}_${entry.value.path}'),
@@ -638,6 +640,15 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
           if (!canvasCtrl.isPointInSelectionUI(event.localPosition)) {
             canvasCtrl.startLasso(event.localPosition);
           }
+        } else if (canvasCtrl.isTextMode) {
+          bool isHit = false;
+          final expandedRectRadius = const EdgeInsets.all(50.0);
+          for (var txt in canvasCtrl.getSyncedTexts(index)) {
+             if (expandedRectRadius.inflateRect(txt.rect).contains(event.localPosition)) {
+                isHit = true; break;
+             }
+          }
+          if (!isHit) canvasCtrl.addTextAt(index, event.localPosition);
         } else if (!canvasCtrl.isTextMode) {
           canvasCtrl.addPoint(index, event.localPosition,
               globalPosition: event.position, pressure: event.pressure);
@@ -855,15 +866,6 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
                 version: canvasCtrl.contentVersion,
               ),
               size: Size.infinite,
-            ),
-          ),
-        if (!isReadOnly && canvasCtrl.isTextMode)
-          Positioned.fill(
-            child: Listener(
-              behavior: HitTestBehavior.opaque,
-              onPointerDown: (event) =>
-                  canvasCtrl.addTextAt(index, event.localPosition),
-              child: Container(color: Colors.transparent),
             ),
           ),
         ...canvasCtrl.getSyncedImages(index).asMap().entries.map(
