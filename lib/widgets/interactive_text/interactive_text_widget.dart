@@ -476,7 +476,19 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
                             // The true drag rotation angle is just the difference! Absolutely immune to local spin.
                             double deltaAngle = currentPointerAngle - _rotationStartPointerAngle;
                             
-                            widget.textData.angle = _rotationStartAngle + deltaAngle;
+                            double rawAngle = _rotationStartAngle + deltaAngle;
+                            
+                            // Magnetic Snapping Logic (intervals of 90 degrees = pi / 2)
+                            const double snapTolerance = 0.087; // Roughly 5 degrees tolerance
+                            const double snapInterval = math.pi / 2;
+                            
+                            double closestSnap = (rawAngle / snapInterval).round() * snapInterval;
+                            
+                            if ((rawAngle - closestSnap).abs() < snapTolerance) {
+                              widget.textData.angle = closestSnap;
+                            } else {
+                              widget.textData.angle = rawAngle;
+                            }
                           });
                         }
                       },
