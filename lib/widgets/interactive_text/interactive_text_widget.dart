@@ -335,8 +335,22 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
                     onTap: isEditing
                         ? null
                         : () {
-                            setState(() => isSelected = true);
-                            widget.onSelect?.call();
+                            if (widget.canvasCtrl?.isTextMode == true) {
+                              setState(() {
+                                isSelected = true;
+                                isEditing = true;
+                              });
+                              widget.onSelect?.call();
+                              widget.canvasCtrl?.startEditingText(
+                                widget.textData,
+                                _quillController,
+                                toggleInspector: _toggleTextInspector,
+                              );
+                              if (mounted) _focusNode.requestFocus();
+                            } else {
+                              setState(() => isSelected = true);
+                              widget.onSelect?.call();
+                            }
                           },
                     onDoubleTap: isEditing
                         ? null
@@ -351,6 +365,7 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
                               _quillController,
                               toggleInspector: _toggleTextInspector,
                             );
+                            if (mounted) _focusNode.requestFocus();
                           },
                     child: Container(
                       decoration: BoxDecoration(
