@@ -529,9 +529,9 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
           // Text mode tap layer
           if (canvasCtrl.isTextMode)
             Positioned.fill(
-              child: GestureDetector(
+              child: Listener(
                 behavior: HitTestBehavior.opaque,
-                onTapUp: (details) => canvasCtrl.addTextAt(index, details.localPosition),
+                onPointerDown: (event) => canvasCtrl.addTextAt(index, event.localPosition),
                 child: Container(color: Colors.transparent),
               ),
             ),
@@ -859,10 +859,10 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
           ),
         if (!isReadOnly && canvasCtrl.isTextMode)
           Positioned.fill(
-            child: GestureDetector(
+            child: Listener(
               behavior: HitTestBehavior.opaque,
-              onTapUp: (details) =>
-                  canvasCtrl.addTextAt(index, details.localPosition),
+              onPointerDown: (event) =>
+                  canvasCtrl.addTextAt(index, event.localPosition),
               child: Container(color: Colors.transparent),
             ),
           ),
