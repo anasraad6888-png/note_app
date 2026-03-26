@@ -122,7 +122,6 @@ class CanvasController extends ChangeNotifier {
         
         // Translate the camera matrix inversely scaled to local coordinates
         transformationController.value = matrix.clone()..translate(0.0, dyDifference / scale);
-        notifyListeners();
       }
     } catch (e) {
       // Gracefully ignore pan matrix calculation errors
