@@ -3,6 +3,7 @@ part of 'interactive_text_widget.dart';
 mixin InteractiveTextInspectorMixin on State<InteractiveTextWidget> {
   bool isSelected = false;
   bool isEditing = false;
+  bool _isInitializing = false;
   static List<TextPreset> savedPresets = [];
   late quill.QuillController _quillController;
   late FocusNode _focusNode;
