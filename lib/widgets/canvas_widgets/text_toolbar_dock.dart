@@ -399,6 +399,17 @@ class _TextToolbarDockState extends State<TextToolbarDock> {
           );
         }
       },
+      onDelete: () {
+        if (isBackground) {
+          controller.formatSelection(
+            quill.Attribute.fromKeyValue('background', null),
+          );
+        } else {
+          controller.formatSelection(
+            quill.Attribute.fromKeyValue('color', null),
+          );
+        }
+      },
       canvasCtrl: widget.canvasCtrl,
     );
 
