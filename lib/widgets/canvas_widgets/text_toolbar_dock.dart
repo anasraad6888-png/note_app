@@ -382,7 +382,7 @@ class _TextToolbarDockState extends State<TextToolbarDock> {
       isBackground,
     );
 
-    DrawingToolsRow.showPopoverColorPicker(
+    await DrawingToolsRow.showPopoverColorPicker(
       context: context,
       currentColor: currentColor,
       onColorChanged: (Color color) {
@@ -401,6 +401,9 @@ class _TextToolbarDockState extends State<TextToolbarDock> {
       },
       canvasCtrl: widget.canvasCtrl,
     );
+
+    // Asynchronously reclaim focus back to the text component after dialog finishes unmounting
+    widget.canvasCtrl.forceTextFocusReclamation();
   }
 }
 

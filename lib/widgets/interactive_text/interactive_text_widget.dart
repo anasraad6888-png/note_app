@@ -199,6 +199,11 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
             widget.onSave();
           }
         }
+      } else {
+        // activeEditingText matches, ensuring physical text bounds didn't drop cursor
+        if (mounted && !_focusNode.hasFocus) {
+          _focusNode.requestFocus();
+        }
       }
     }
   }

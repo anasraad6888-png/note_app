@@ -90,6 +90,10 @@ class CanvasController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void forceTextFocusReclamation() {
+    notifyListeners();
+  }
+
   final ScreenshotController screenshotController = ScreenshotController();
   Offset rulerPosition = const Offset(350, 450);
   double rulerAngle = 0.0;

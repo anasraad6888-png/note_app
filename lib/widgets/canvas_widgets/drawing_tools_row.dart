@@ -1400,7 +1400,7 @@ return Flex(
 
   static bool isColorPickerOpen = false;
 
-  static void showPopoverColorPicker({
+  static Future<void> showPopoverColorPicker({
     required BuildContext context,
     required Color currentColor,
     required Function(Color) onColorChanged,
