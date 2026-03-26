@@ -97,9 +97,9 @@ class CanvasController extends ChangeNotifier {
   void panToVisibleSafeZone(BuildContext context) {
     if (isPanZoomMode) return;
     try {
-      final mediaQuery = MediaQuery.of(context);
-      final screenHeight = mediaQuery.size.height;
-      final keyboardHeight = mediaQuery.viewInsets.bottom;
+      final view = View.of(context);
+      final double screenHeight = view.physicalSize.height / view.devicePixelRatio;
+      final double keyboardHeight = view.viewInsets.bottom / view.devicePixelRatio;
       if (keyboardHeight < 50) return; // Ignore if keyboard is not active
 
       final safeZoneTop = 140.0; // Top toolbars padding

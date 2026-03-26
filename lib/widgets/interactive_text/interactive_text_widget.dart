@@ -106,7 +106,7 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
     _focusNode = FocusNode();
     _focusNode.addListener(() {
       if (_focusNode.hasFocus) {
-        Future.delayed(const Duration(milliseconds: 300), () {
+        Future.delayed(const Duration(milliseconds: 600), () {
           if (mounted) {
             widget.canvasCtrl?.panToVisibleSafeZone(context);
           }
