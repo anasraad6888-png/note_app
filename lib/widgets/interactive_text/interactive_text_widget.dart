@@ -185,7 +185,7 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
   }
 
   void _onCanvasControllerChanged() {
-    if (isSelected || isEditing) {
+    if (isEditing) {
       if (widget.canvasCtrl?.activeEditingText?.id != widget.textData.id) {
         if (mounted) {
           setState(() {
@@ -203,6 +203,15 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
         // activeEditingText matches, ensuring physical text bounds didn't drop cursor
         if (mounted && !_focusNode.hasFocus) {
           _focusNode.requestFocus();
+        }
+      }
+    } else if (isSelected) {
+      // If purely selected, only forcefully deselect if another box actively enters edit mode
+      if (widget.canvasCtrl?.activeEditingText != null && widget.canvasCtrl?.activeEditingText?.id != widget.textData.id) {
+        if (mounted) {
+          setState(() {
+            isSelected = false;
+          });
         }
       }
     }
@@ -340,12 +349,13 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
                                 isSelected = true;
                                 isEditing = true;
                               });
-                              widget.onSelect?.call();
+                              // Start edit mode BEFORE bringing to front avoiding observer death
                               widget.canvasCtrl?.startEditingText(
                                 widget.textData,
                                 _quillController,
                                 toggleInspector: _toggleTextInspector,
                               );
+                              widget.onSelect?.call();
                               if (mounted) _focusNode.requestFocus();
                             } else {
                               setState(() => isSelected = true);
@@ -359,12 +369,12 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
                               isSelected = true;
                               isEditing = true;
                             });
-                            widget.onSelect?.call();
                             widget.canvasCtrl?.startEditingText(
                               widget.textData,
                               _quillController,
                               toggleInspector: _toggleTextInspector,
                             );
+                            widget.onSelect?.call();
                             if (mounted) _focusNode.requestFocus();
                           },
                     child: Container(
