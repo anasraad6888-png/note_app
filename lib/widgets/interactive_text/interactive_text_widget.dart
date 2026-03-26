@@ -507,7 +507,9 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
                   Positioned(
                     // Tool height: 20(pad) + 32*3(btns) + 30(trash) + 6*4(gaps) + 12(gap) + 1*2(divs) = 184
                     top: topOffset + (widget.textData.rect.height / 2) - 92, 
-                    left: hOffset - 65, // Dock securely to the left edge away from drag handles
+                    left: widget.textData.rect.left < 70 
+                        ? hOffset + widget.textData.rect.width + 25 // Flip Right
+                        : hOffset - 65, // Default Left Dock
                     child: ExcludeFocus(
                       child: TapRegion(
                         groupId: tapGroupId,
