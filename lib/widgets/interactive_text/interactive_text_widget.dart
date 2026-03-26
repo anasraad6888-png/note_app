@@ -448,34 +448,42 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
                     left: hOffset + widget.textData.rect.width - 20,
                     top: topOffset - 15,
                     child: GestureDetector(
-                      onPanUpdate: (details) {
-                        setState(() {
-                          final RenderBox? box = context.findRenderObject() as RenderBox?;
-                          if (box != null) {
-                            // Map the absolute screen touch into the rotated bounding box natively
-                            Offset localPt = box.globalToLocal(details.globalPosition);
-
-                            double cx = hOffset + (widget.textData.rect.width / 2);
-                            double cy = topOffset + (widget.textData.rect.height / 2);
-
-                            // Local-space pointer angle relative to center exactly matched to screen physics
-                            double fingerAngle = math.atan2(
-                              localPt.dy - cy,
-                              localPt.dx - cx,
-                            );
-
-                            // Static angle of the top-right corner in local space
-                            double handleAngle = math.atan2(
-                              -(widget.textData.rect.height / 2) - 0.5,
-                              (widget.textData.rect.width / 2) - 0.5,
-                            );
-
-                            // Absorb the exact deviation the finger caused in local frame into the global orientation
-                            widget.textData.angle += (fingerAngle - handleAngle);
-                          }
-                        });
+                      onPanStart: (details) {
+                        final RenderBox? box = context.findRenderObject() as RenderBox?;
+                        if (box != null) {
+                          double cx = hOffset + (widget.textData.rect.width / 2);
+                          double cy = topOffset + (widget.textData.rect.height / 2);
+                          // We map the static center into exactly one fixed global screen coordinate 
+                          _rotationPivotGlobal = box.localToGlobal(Offset(cx, cy));
+                          _rotationStartAngle = widget.textData.angle;
+                          
+                          // Track the exact physical screen angle the finger grabbed at
+                          _rotationStartPointerAngle = math.atan2(
+                            details.globalPosition.dy - _rotationPivotGlobal!.dy,
+                            details.globalPosition.dx - _rotationPivotGlobal!.dx,
+                          );
+                        }
                       },
-                      onPanEnd: (_) => widget.onSave(),
+                      onPanUpdate: (details) {
+                        if (_rotationPivotGlobal != null) {
+                          setState(() {
+                            // Find the physical screen angle of where the finger moved to
+                            double currentPointerAngle = math.atan2(
+                              details.globalPosition.dy - _rotationPivotGlobal!.dy,
+                              details.globalPosition.dx - _rotationPivotGlobal!.dx,
+                            );
+                            
+                            // The true drag rotation angle is just the difference! Absolutely immune to local spin.
+                            double deltaAngle = currentPointerAngle - _rotationStartPointerAngle;
+                            
+                            widget.textData.angle = _rotationStartAngle + deltaAngle;
+                          });
+                        }
+                      },
+                      onPanEnd: (_) {
+                        _rotationPivotGlobal = null;
+                        widget.onSave();
+                      },
                       child: Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(

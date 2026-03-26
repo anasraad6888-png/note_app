@@ -12,6 +12,11 @@ mixin InteractiveTextInspectorMixin on State<InteractiveTextWidget> {
   Offset? _inspectorPosition;
   int _lastFormatTime = 0;
 
+  // Exact Absolute Rotation Tracking Anchors
+  Offset? _rotationPivotGlobal;
+  double _rotationStartAngle = 0;
+  double _rotationStartPointerAngle = 0;
+
   void _removeInspectorOverlay() {
     _inspectorOverlay?.remove();
     _inspectorOverlay = null;
