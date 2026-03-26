@@ -13,7 +13,7 @@ import 'dart:math' as math;
 import 'widgets/pdf_page_background.dart';
 import 'widgets/interactive_table_widget.dart';
 import 'widgets/interactive_shape_widget.dart';
-import 'widgets/interactive_text_widget.dart';
+import 'widgets/interactive_text/interactive_text_widget.dart';
 import 'widgets/canvas_widgets/top_toolbar.dart';
 import 'widgets/canvas_widgets/drawing_tools_row.dart';
 import 'widgets/canvas_widgets/audio_player_window.dart';

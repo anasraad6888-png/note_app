@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../painters/canvas_painters.dart';
 import '../../controllers/canvas_controller.dart';
-import '../interactive_text_widget.dart';
+import '../interactive_text/interactive_text_widget.dart';
 
 // 1. الإطار الأزرق (يوضع داخل الصفحة ليلتصق بها ويقرأ إحداثياتها بدقة)
 class ZoomTargetBox extends StatelessWidget {
