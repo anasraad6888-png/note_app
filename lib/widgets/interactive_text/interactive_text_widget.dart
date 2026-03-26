@@ -505,16 +505,16 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
                 // Vertical Side-Dock Toolbar Native Injection
                 if (isSelected && !widget.readOnly)
                   Positioned(
-                    // Tool height: 28(pad) + 38*3(btns) + 34(trash) + 8*4(gaps) + 16(gap) + 1.5*2(divs) = 227
-                    top: topOffset + (widget.textData.rect.height / 2) - 113.5, 
-                    left: hOffset - 56, // Dock securely to the left edge universally
+                    // Tool height: 20(pad) + 32*3(btns) + 30(trash) + 6*4(gaps) + 12(gap) + 1*2(divs) = 184
+                    top: topOffset + (widget.textData.rect.height / 2) - 92, 
+                    left: hOffset - 48, // Dock securely to the left edge universally
                     child: ExcludeFocus(
                       child: TapRegion(
                         groupId: tapGroupId,
                         child: Container(
-                          width: 48, // Slim pill aesthetic
+                          width: 40, // Slim pill aesthetic
                           padding: const EdgeInsets.symmetric(
-                            vertical: 14,
+                            vertical: 10,
                           ), // Vertical padding
                           decoration: BoxDecoration(
                             color: widget.isDarkMode
@@ -548,13 +548,13 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
                                   borderRadius: BorderRadius.circular(20),
                                   onTap: () => _toggleTextInspector(initialTab: 0),
                                   child: Container(
-                                    width: 38,
-                                    height: 38,
+                                    width: 32,
+                                    height: 32,
                                     alignment: Alignment.center,
                                     child: Text(
                                       "Aa",
                                       style: TextStyle(
-                                        fontSize: 18,
+                                        fontSize: 15,
                                         fontWeight: FontWeight.w800,
                                         color: widget.isDarkMode
                                             ? Colors.white
@@ -565,9 +565,9 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
                                   ),
                                 ),
                               ),
-                              const SizedBox(height: 8),
-                              Container(height: 1.5, width: 22, color: widget.isDarkMode ? Colors.white24 : Colors.black12),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 6),
+                              Container(height: 1, width: 20, color: widget.isDarkMode ? Colors.white24 : Colors.black12),
+                              const SizedBox(height: 6),
                               
                               // Box Format (Cube)
                               Tooltip(
@@ -576,16 +576,16 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
                                   borderRadius: BorderRadius.circular(20),
                                   onTap: () => _toggleTextInspector(initialTab: 1),
                                   child: Container(
-                                    width: 38,
-                                    height: 38,
+                                    width: 32,
+                                    height: 32,
                                     alignment: Alignment.center,
-                                    child: Icon(LucideIcons.box, size: 22, color: widget.isDarkMode ? Colors.white : Colors.black87),
+                                    child: Icon(LucideIcons.box, size: 18, color: widget.isDarkMode ? Colors.white : Colors.black87),
                                   ),
                                 ),
                               ),
-                              const SizedBox(height: 8),
-                              Container(height: 1.5, width: 22, color: widget.isDarkMode ? Colors.white24 : Colors.black12),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 6),
+                              Container(height: 1, width: 20, color: widget.isDarkMode ? Colors.white24 : Colors.black12),
+                              const SizedBox(height: 6),
                               
                               // Styles (Bookmark)
                               Tooltip(
@@ -594,14 +594,14 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
                                   borderRadius: BorderRadius.circular(20),
                                   onTap: () => _toggleTextInspector(initialTab: 2),
                                   child: Container(
-                                     width: 38,
-                                     height: 38,
+                                     width: 32,
+                                     height: 32,
                                      alignment: Alignment.center,
-                                     child: Icon(LucideIcons.bookmark, size: 22, color: widget.isDarkMode ? Colors.white : Colors.black87),
+                                     child: Icon(LucideIcons.bookmark, size: 18, color: widget.isDarkMode ? Colors.white : Colors.black87),
                                   ),
                                 ),
                               ),
-                              const SizedBox(height: 16),
+                              const SizedBox(height: 12),
                               
                               // Delete Button (Red Trash)
                               Tooltip(
@@ -614,13 +614,13 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
                                     widget.onDelete();
                                   },
                                   child: Container(
-                                    width: 34,
-                                    height: 34,
+                                    width: 30,
+                                    height: 30,
                                     decoration: const BoxDecoration(
                                       color: Color(0xFFFF4B4B), // Striking Red matching screenshot
                                       shape: BoxShape.circle,
                                     ),
-                                    child: const Icon(LucideIcons.trash2, size: 18, color: Colors.white),
+                                    child: const Icon(LucideIcons.trash2, size: 16, color: Colors.white),
                                   ),
                                 ),
                               ),
