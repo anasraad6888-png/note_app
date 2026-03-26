@@ -450,10 +450,24 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
                     child: GestureDetector(
                       onPanUpdate: (details) {
                         setState(() {
-                          // Simple angular drag (clockwise increasing angle based on dx moving right natively)
-                          widget.textData.angle +=
-                              (details.delta.dx * 0.01) +
-                              (details.delta.dy * 0.01);
+                          double cx = hOffset + (widget.textData.rect.width / 2);
+                          double cy = topOffset + (widget.textData.rect.height / 2);
+
+                          // Local-space pointer angle relative to center natively bounds the math.
+                          // Without this, local frame rotation loops create massive drag inversions.
+                          double fingerAngle = math.atan2(
+                            details.localPosition.dy - cy,
+                            details.localPosition.dx - cx,
+                          );
+
+                          // Static angle of the top-right corner in local space
+                          double handleAngle = math.atan2(
+                            -(widget.textData.rect.height / 2) - 0.5,
+                            (widget.textData.rect.width / 2) - 0.5,
+                          );
+
+                          // Absorb the exact deviation the finger caused in local frame into the global orientation
+                          widget.textData.angle += (fingerAngle - handleAngle);
                         });
                       },
                       onPanEnd: (_) => widget.onSave(),
