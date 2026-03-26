@@ -53,7 +53,7 @@ class InteractiveTextWidget extends StatefulWidget {
   State<InteractiveTextWidget> createState() => _InteractiveTextWidgetState();
 }
 
-class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with InteractiveTextInspectorMixin, WidgetsBindingObserver {
+class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with InteractiveTextInspectorMixin {
   quill.QuillEditorConfig _getEditorConfig(
     BuildContext context, {
     required bool isEditing,
@@ -102,18 +102,8 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     widget.canvasCtrl?.addListener(_onCanvasControllerChanged);
     _focusNode = FocusNode();
-    _focusNode.addListener(() {
-      if (_focusNode.hasFocus) {
-        Future.delayed(const Duration(milliseconds: 50), () {
-          if (mounted && isEditing) {
-            widget.canvasCtrl?.panToVisibleSafeZone(context);
-          }
-        });
-      }
-    });
 
     if (widget.textData.deltaJson != null &&
         widget.textData.deltaJson!.isNotEmpty) {
@@ -221,20 +211,11 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     widget.canvasCtrl?.removeListener(_onCanvasControllerChanged);
     _removeInspectorOverlay();
     _quillController.dispose();
     _focusNode.dispose();
     super.dispose();
-  }
-
-  @override
-  void didChangeMetrics() {
-    super.didChangeMetrics();
-    if (mounted && isEditing && _focusNode.hasFocus) {
-      widget.canvasCtrl?.panToVisibleSafeZone(context);
-    }
   }
 
   void _updateRect(double dx, double dy, bool isLeft, bool isTop) {

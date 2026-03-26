@@ -33,6 +33,7 @@ class CanvasController extends ChangeNotifier {
     contentVersion++;
     notifyListeners();
   }
+
   final NoteDocument document;
   final AudioController audioCtrl;
   final Function(NoteDocument) onSave;
@@ -74,8 +75,16 @@ class CanvasController extends ChangeNotifier {
   PageText? activeEditingText;
   quill.QuillController? activeQuillController;
   VoidCallback? toggleTextInspector;
+  Matrix4? _preKeyboardMatrix;
 
-  void startEditingText(PageText text, quill.QuillController controller, {VoidCallback? toggleInspector}) {
+  void startEditingText(
+    PageText text,
+    quill.QuillController controller, {
+    VoidCallback? toggleInspector,
+  }) {
+    if (activeEditingText == null && _preKeyboardMatrix == null) {
+      _preKeyboardMatrix = transformationController.value.clone();
+    }
     activeEditingText = text;
     activeQuillController = controller;
     toggleTextInspector = toggleInspector;
@@ -87,45 +96,17 @@ class CanvasController extends ChangeNotifier {
     activeEditingText = null;
     activeQuillController = null;
     toggleTextInspector = null;
+
+    if (_preKeyboardMatrix != null) {
+      transformationController.value = _preKeyboardMatrix!;
+      _preKeyboardMatrix = null;
+    }
+
     notifyListeners();
   }
 
   void forceTextFocusReclamation() {
     notifyListeners();
-  }
-
-  void panToVisibleSafeZone(BuildContext context) {
-    if (isPanZoomMode) return;
-    try {
-      final view = View.of(context);
-      final double screenHeight = view.physicalSize.height / view.devicePixelRatio;
-      final double keyboardHeight = view.viewInsets.bottom / view.devicePixelRatio;
-      if (keyboardHeight < 50) return; // Ignore if keyboard is not active
-
-      final safeZoneTop = 140.0; // Top toolbars padding
-      final safeZoneBottom = screenHeight - keyboardHeight;
-      final safeZoneCenterY = (safeZoneTop + safeZoneBottom) / 2;
-
-      final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
-      if (renderBox == null) return;
-
-      final Offset screenTopLeft = renderBox.localToGlobal(Offset.zero);
-      final matrix = transformationController.value;
-      final double scale = matrix.getMaxScaleOnAxis();
-      
-      // InteractiveTextWidget has an absolute internal topOffset of 150 (scaled globally)
-      final double visualTextTopY = screenTopLeft.dy + (150.0 * scale);
-
-      // Only pan if the text box is colliding with the keyboard or hidden under top toolbars
-      if (visualTextTopY > safeZoneBottom - 50 || visualTextTopY < safeZoneTop + 50) {
-        final double dyDifference = safeZoneCenterY - visualTextTopY;
-        
-        // Translate the camera matrix inversely scaled to local coordinates
-        transformationController.value = matrix.clone()..translate(0.0, dyDifference / scale);
-      }
-    } catch (e) {
-      // Gracefully ignore pan matrix calculation errors
-    }
   }
 
   final ScreenshotController screenshotController = ScreenshotController();
@@ -169,7 +150,14 @@ class CanvasController extends ChangeNotifier {
   bool isEraserMode = false;
   bool eraseEntireObject = false;
   bool showEraserSettingsRow = false;
-  Set<String> eraseFilters = {'pen', 'highlighter', 'shapes', 'images', 'texts', 'tables'};
+  Set<String> eraseFilters = {
+    'pen',
+    'highlighter',
+    'shapes',
+    'images',
+    'texts',
+    'tables',
+  };
   List<double> eraserWidthPresets = [10.0, 20.0, 40.0];
   int activeEraserWidthIndex = 1;
 
@@ -209,13 +197,13 @@ class CanvasController extends ChangeNotifier {
 
   void jumpToPage(int index) {
     if (index < 0 || index >= document.pages.length) return;
-    
+
     currentPageIndex = index;
-    
+
     // Calculate the scroll position
     // ListView padding top: 140, page padding vertical: 20*2=40, page height: 900
     double scrollPosition = 140.0 + (index * 940.0);
-    
+
     if (scrollController.hasClients) {
       scrollController.animateTo(
         scrollPosition,
@@ -223,7 +211,7 @@ class CanvasController extends ChangeNotifier {
         curve: Curves.easeInOut,
       );
     }
-    
+
     // notifyListeners() is called by the currentPageIndex setter
   }
 
@@ -273,42 +261,45 @@ class CanvasController extends ChangeNotifier {
   void pasteClipboard(int pageIndex, Offset position) {
     if (clipboardGroup == null) return;
     saveStrokes(); // For undo
-    
+
     final clone = clipboardGroup!.clone();
     clone.pageIndex = pageIndex;
-    
+
     final rect = clone.initialBoundingBox;
     if (rect != null) {
-       final offset = position - rect.center;
-       clone.currentTranslation += offset;
+      final offset = position - rect.center;
+      clone.currentTranslation += offset;
     }
-    
+
     if (activeSelectionGroup != null) commitSelection();
     activeSelectionGroup = clone;
-    
+
     disableAllTools();
     isLassoMode = true;
     showLassoSettingsRow = true;
-    
+
     notifyContentChanged();
   }
 
   void duplicateSelection() {
     if (activeSelectionGroup == null) return;
-    
+
     final clone = activeSelectionGroup!.clone();
     commitSelection(); // Bake the original elements natively into the page
-    
-    clone.currentTranslation += const Offset(20, 20); // Append slight interaction offset
+
+    clone.currentTranslation += const Offset(
+      20,
+      20,
+    ); // Append slight interaction offset
     activeSelectionGroup = clone;
-    
+
     notifyContentChanged();
   }
 
   void recolorSelection(Color color) {
     if (activeSelectionGroup == null) return;
     final group = activeSelectionGroup!;
-    
+
     final newStrokes = <DrawingPoint?>[];
     for (var p in group.strokes) {
       if (p == null) {
@@ -321,11 +312,20 @@ class CanvasController extends ChangeNotifier {
           ..strokeJoin = p.paint.strokeJoin
           ..style = p.paint.style
           ..blendMode = p.paint.blendMode;
-        newStrokes.add(DrawingPoint(p.offset, newPaint, pressure: p.pressure, penType: p.penType, timestamp: p.timestamp, audioIndex: p.audioIndex));
+        newStrokes.add(
+          DrawingPoint(
+            p.offset,
+            newPaint,
+            pressure: p.pressure,
+            penType: p.penType,
+            timestamp: p.timestamp,
+            audioIndex: p.audioIndex,
+          ),
+        );
       }
     }
     group.strokes = newStrokes;
-    
+
     for (var shape in group.shapes) {
       shape.borderColor = color;
     }
@@ -333,9 +333,9 @@ class CanvasController extends ChangeNotifier {
       text.color = color;
     }
     for (var table in group.tables) {
-       table.borderColor = color;
+      table.borderColor = color;
     }
-    
+
     notifyContentChanged();
   }
 
@@ -346,7 +346,7 @@ class CanvasController extends ChangeNotifier {
 
     _currentlyExtractingPage = pageIndex;
     final textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
-    
+
     try {
       final doc = pdfDocument!;
       if (pageIndex >= doc.pagesCount) return;
@@ -355,32 +355,88 @@ class CanvasController extends ChangeNotifier {
       final scale = 700 / page.width;
       final renderW = page.width * scale * 2;
       final renderH = page.height * scale * 2;
-      final image = await page.render(width: renderW, height: renderH, format: PdfPageImageFormat.jpeg, quality: 90);
+      final image = await page.render(
+        width: renderW,
+        height: renderH,
+        format: PdfPageImageFormat.jpeg,
+        quality: 90,
+      );
       await page.close();
-      
+
       final tempDir = await getTemporaryDirectory();
       final tempFile = File('${tempDir.path}/pdf_temp_ocr_$pageIndex.jpg');
       await tempFile.writeAsBytes(image!.bytes);
-      
+
       final inputImage = InputImage.fromFilePath(tempFile.path);
       final recognizedText = await textRecognizer.processImage(inputImage);
-      
+
       List<Rect> boxes = [];
       for (TextBlock block in recognizedText.blocks) {
         for (TextLine line in block.lines) {
-           final rect = line.boundingBox;
-           boxes.add(Rect.fromLTRB(rect.left / 2, rect.top / 2, rect.right / 2, rect.bottom / 2));
+          final rect = line.boundingBox;
+          boxes.add(
+            Rect.fromLTRB(
+              rect.left / 2,
+              rect.top / 2,
+              rect.right / 2,
+              rect.bottom / 2,
+            ),
+          );
         }
       }
-      
+
       pdfTextBounds[pageIndex] = boxes;
       tempFile.deleteSync();
     } catch (e) {
       debugPrint("OCR extraction failed for page $pageIndex: $e");
     } finally {
-      if (_currentlyExtractingPage == pageIndex) _currentlyExtractingPage = null;
+      if (_currentlyExtractingPage == pageIndex)
+        _currentlyExtractingPage = null;
       await textRecognizer.close();
       notifyListeners();
+    }
+  }
+
+  void panToVisibleSafeZone(BuildContext context) {
+    if (isPanZoomMode) return;
+    try {
+      final view = View.of(context);
+      final double screenHeight = view.physicalSize.height / view.devicePixelRatio;
+      final double keyboardHeight = view.viewInsets.bottom / view.devicePixelRatio;
+
+      // Hardware Spring Restoration: When keyboard fully retracts, snap perfectly to original layout bounds
+      if (keyboardHeight < 10) {
+        if (_preKeyboardMatrix != null && activeEditingText != null) {
+          transformationController.value = _preKeyboardMatrix!;
+        }
+        return; 
+      }
+
+      final safeZoneTop = 140.0; // Top toolbars padding
+      final safeZoneBottom = screenHeight - keyboardHeight;
+      final safeZoneCenterY = (safeZoneTop + safeZoneBottom) / 2;
+
+      final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
+      if (renderBox == null) return;
+
+      final Offset screenTopLeft = renderBox.localToGlobal(Offset.zero);
+      final matrix = transformationController.value;
+      final double scale = matrix.getMaxScaleOnAxis();
+
+      // InteractiveTextWidget has an absolute internal topOffset of 150 (scaled globally)
+      final double visualTextTopY = screenTopLeft.dy + (150.0 * scale);
+
+      if (visualTextTopY > safeZoneBottom - 50 || visualTextTopY < safeZoneTop + 50) {
+        final double dyDifference = safeZoneCenterY - visualTextTopY;
+
+        // Block insane hardware glitch offsets natively ensuring stability
+        if (dyDifference.abs() > 2000) return;
+
+        // Translate the camera matrix inversely scaled to local coordinates
+        transformationController.value = matrix.clone()..translate(0.0, dyDifference / scale);
+      }
+    } catch (e) {
+      // Gracefully ignore pan matrix calculation errors
     }
   }
 
@@ -399,27 +455,41 @@ class CanvasController extends ChangeNotifier {
 
       final recorder = ui.PictureRecorder();
       final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, width, height));
-      
-      canvas.drawRect(Rect.fromLTWH(0, 0, width, height), Paint()..color = Colors.white);
+
+      canvas.drawRect(
+        Rect.fromLTWH(0, 0, width, height),
+        Paint()..color = Colors.white,
+      );
       canvas.translate(-bounds.left, -bounds.top);
-      
-      final painter = DrawingPainter(group.strokes, pageTemplates[currentPageIndex], isDarkMode: false, version: contentVersion);
+
+      final painter = DrawingPainter(
+        group.strokes,
+        pageTemplates[currentPageIndex],
+        isDarkMode: false,
+        version: contentVersion,
+      );
       painter.paint(canvas, Size(bounds.right, bounds.bottom));
 
       final picture = recorder.endRecording();
       final img = await picture.toImage(width.toInt(), height.toInt());
       final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) return;
-      
+
       final bytes = byteData.buffer.asUint8List();
 
       final tempDir = await getTemporaryDirectory();
-      final file = File('${tempDir.path}/ocr_temp_${DateTime.now().millisecondsSinceEpoch}.png');
+      final file = File(
+        '${tempDir.path}/ocr_temp_${DateTime.now().millisecondsSinceEpoch}.png',
+      );
       await file.writeAsBytes(bytes);
 
       final inputImage = InputImage.fromFilePath(file.path);
-      final textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
-      final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
+      final textRecognizer = TextRecognizer(
+        script: TextRecognitionScript.latin,
+      );
+      final RecognizedText recognizedText = await textRecognizer.processImage(
+        inputImage,
+      );
       await textRecognizer.close();
 
       final text = recognizedText.text.trim();
@@ -434,17 +504,21 @@ class CanvasController extends ChangeNotifier {
       final txtData = PageText(
         id: UniqueKey().toString(),
         text: text,
-        rect: Rect.fromLTWH(bounds.left, bounds.bottom + 10, math.max(200, bounds.width), math.max(60, bounds.height)),
+        rect: Rect.fromLTWH(
+          bounds.left,
+          bounds.bottom + 10,
+          math.max(200, bounds.width),
+          math.max(60, bounds.height),
+        ),
         color: isDarkMode ? Colors.white : Colors.black,
         fontSize: 24.0,
         timestamp: DateTime.now().millisecondsSinceEpoch,
       );
-      
+
       pagesTexts[pageIndex].add(txtData);
       saveStrokes();
       notifyListeners();
       showMessage?.call("تم تحويل النص بنجاح!");
-
     } catch (e) {
       showMessage?.call("خطأ أثناء قراءة النص: $e", isError: true);
     }
@@ -471,7 +545,7 @@ class CanvasController extends ChangeNotifier {
   void commitSelection() {
     if (activeSelectionGroup == null) return;
     final group = activeSelectionGroup!;
-    
+
     final double tx = group.currentTranslation.dx;
     final double ty = group.currentTranslation.dy;
     final double scale = group.currentScale;
@@ -511,35 +585,55 @@ class CanvasController extends ChangeNotifier {
     }).toList();
 
     for (var img in group.images) {
-      final imgCenter = Rect.fromLTWH(img.offset.dx, img.offset.dy, img.size.width, img.size.height).center;
+      final imgCenter = Rect.fromLTWH(
+        img.offset.dx,
+        img.offset.dy,
+        img.size.width,
+        img.size.height,
+      ).center;
       final newCenter = applyTransform(imgCenter);
       img.size = Size(img.size.width * scale, img.size.height * scale);
-      img.offset = Offset(newCenter.dx - img.size.width / 2, newCenter.dy - img.size.height / 2);
+      img.offset = Offset(
+        newCenter.dx - img.size.width / 2,
+        newCenter.dy - img.size.height / 2,
+      );
     }
-    
+
     for (var txt in group.texts) {
       final newCenter = applyTransform(txt.rect.center);
-      txt.rect = Rect.fromCenter(center: newCenter, width: txt.rect.width * scale, height: txt.rect.height * scale);
+      txt.rect = Rect.fromCenter(
+        center: newCenter,
+        width: txt.rect.width * scale,
+        height: txt.rect.height * scale,
+      );
       txt.fontSize *= scale;
       txt.angle += rot;
     }
-    
+
     for (var shp in group.shapes) {
       final newCenter = applyTransform(shp.rect.center);
-      shp.rect = Rect.fromCenter(center: newCenter, width: shp.rect.width * scale, height: shp.rect.height * scale);
+      shp.rect = Rect.fromCenter(
+        center: newCenter,
+        width: shp.rect.width * scale,
+        height: shp.rect.height * scale,
+      );
     }
-    
+
     for (var tab in group.tables) {
       final newCenter = applyTransform(tab.rect.center);
-      tab.rect = Rect.fromCenter(center: newCenter, width: tab.rect.width * scale, height: tab.rect.height * scale);
+      tab.rect = Rect.fromCenter(
+        center: newCenter,
+        width: tab.rect.width * scale,
+        height: tab.rect.height * scale,
+      );
     }
-    
+
     pagesPoints[group.pageIndex].addAll(bakedStrokes);
     pagesImages[group.pageIndex].addAll(group.images);
     pagesTexts[group.pageIndex].addAll(group.texts);
     pagesShapes[group.pageIndex].addAll(group.shapes);
     pagesTables[group.pageIndex].addAll(group.tables);
-    
+
     activeSelectionGroup = null;
     notifyContentChanged();
   }
@@ -619,7 +713,7 @@ class CanvasController extends ChangeNotifier {
   }
 
   bool isDraggingPalette = false;
-  
+
   // Floating Windows
   Offset settingsWindowPosition = const Offset(100, 100);
   bool isSettingsMagnetActive = true;
@@ -636,7 +730,8 @@ class CanvasController extends ChangeNotifier {
 
   void toggleSettingsMagnet() {
     if (isSettingsMagnetActive && dockedSettingsKey.currentContext != null) {
-      final RenderBox? renderBox = dockedSettingsKey.currentContext?.findRenderObject() as RenderBox?;
+      final RenderBox? renderBox =
+          dockedSettingsKey.currentContext?.findRenderObject() as RenderBox?;
       if (renderBox != null) {
         settingsWindowPosition = renderBox.localToGlobal(Offset.zero);
       }
@@ -684,11 +779,7 @@ class CanvasController extends ChangeNotifier {
   }
 
   // --- Pen Colors Logic ---
-  List<Color> defaultPenColors = [
-    Colors.black,
-    Colors.red,
-    Colors.green,
-  ];
+  List<Color> defaultPenColors = [Colors.black, Colors.red, Colors.green];
   List<Color> customPenColors = [];
 
   void loadPenColors() {
@@ -706,14 +797,24 @@ class CanvasController extends ChangeNotifier {
       if (widths != null && widths is List) {
         strokeWidthPresets = widths.map((w) => (w as num).toDouble()).toList();
       }
-      activeStrokeWidthIndex = box.get('activeStrokeWidthIndex', defaultValue: 1);
-      
-      if (activeStrokeWidthIndex >= 0 && activeStrokeWidthIndex < strokeWidthPresets.length) {
+      activeStrokeWidthIndex = box.get(
+        'activeStrokeWidthIndex',
+        defaultValue: 1,
+      );
+
+      if (activeStrokeWidthIndex >= 0 &&
+          activeStrokeWidthIndex < strokeWidthPresets.length) {
         strokeWidth = strokeWidthPresets[activeStrokeWidthIndex];
       }
-      isSettingsMagnetActive = box.get('isSettingsMagnetActive', defaultValue: true);
-      
-      final posIndex = box.get('toolbarPosition_${document.id}', defaultValue: ToolbarPosition.bottom.index);
+      isSettingsMagnetActive = box.get(
+        'isSettingsMagnetActive',
+        defaultValue: true,
+      );
+
+      final posIndex = box.get(
+        'toolbarPosition_${document.id}',
+        defaultValue: ToolbarPosition.bottom.index,
+      );
       toolbarPosition = ToolbarPosition.values[posIndex as int];
     } catch (_) {}
   }
@@ -721,8 +822,14 @@ class CanvasController extends ChangeNotifier {
   void savePenColors() {
     try {
       final box = Hive.box('settingsBox');
-      box.put('defaultPenColors', defaultPenColors.map((c) => c.toARGB32()).toList());
-      box.put('customPenColors', customPenColors.map((c) => c.toARGB32()).toList());
+      box.put(
+        'defaultPenColors',
+        defaultPenColors.map((c) => c.toARGB32()).toList(),
+      );
+      box.put(
+        'customPenColors',
+        customPenColors.map((c) => c.toARGB32()).toList(),
+      );
       box.put('strokeWidthPresets', strokeWidthPresets);
       box.put('activeStrokeWidthIndex', activeStrokeWidthIndex);
       box.put('isSettingsMagnetActive', isSettingsMagnetActive);
@@ -786,7 +893,6 @@ class CanvasController extends ChangeNotifier {
     }
   }
 
-
   void deleteDefaultPenColor(int index) {
     if (index >= 0 && index < defaultPenColors.length) {
       if ((defaultPenColors.length + customPenColors.length) > 3) {
@@ -811,11 +917,15 @@ class CanvasController extends ChangeNotifier {
       final box = Hive.box('settingsBox');
       final defColors = box.get('defaultHighlighterColors');
       if (defColors != null && defColors is List) {
-        defaultHighlighterColors = defColors.map((c) => Color(c as int)).toList();
+        defaultHighlighterColors = defColors
+            .map((c) => Color(c as int))
+            .toList();
       }
       final custColors = box.get('customHighlighterColors');
       if (custColors != null && custColors is List) {
-        customHighlighterColors = custColors.map((c) => Color(c as int)).toList();
+        customHighlighterColors = custColors
+            .map((c) => Color(c as int))
+            .toList();
       }
     } catch (_) {}
   }
@@ -823,15 +933,22 @@ class CanvasController extends ChangeNotifier {
   void saveHighlighterColors() {
     try {
       final box = Hive.box('settingsBox');
-      box.put('defaultHighlighterColors', defaultHighlighterColors.map((c) => c.toARGB32()).toList());
-      box.put('customHighlighterColors', customHighlighterColors.map((c) => c.toARGB32()).toList());
+      box.put(
+        'defaultHighlighterColors',
+        defaultHighlighterColors.map((c) => c.toARGB32()).toList(),
+      );
+      box.put(
+        'customHighlighterColors',
+        customHighlighterColors.map((c) => c.toARGB32()).toList(),
+      );
     } catch (_) {}
   }
 
   void changeDefaultHighlighterColor(int index, Color newColor) {
     if (index >= 0 && index < defaultHighlighterColors.length) {
       defaultHighlighterColors[index] = newColor;
-      if (highlighterColor == defaultHighlighterColors[index]) highlighterColor = newColor;
+      if (highlighterColor == defaultHighlighterColors[index])
+        highlighterColor = newColor;
       saveHighlighterColors();
       notifyListeners();
     }
@@ -849,7 +966,8 @@ class CanvasController extends ChangeNotifier {
   void changeCustomHighlighterColor(int index, Color newColor) {
     if (index >= 0 && index < customHighlighterColors.length) {
       customHighlighterColors[index] = newColor;
-      if (highlighterColor == customHighlighterColors[index]) highlighterColor = newColor;
+      if (highlighterColor == customHighlighterColors[index])
+        highlighterColor = newColor;
       saveHighlighterColors();
       notifyListeners();
     }
@@ -857,7 +975,8 @@ class CanvasController extends ChangeNotifier {
 
   void deleteCustomHighlighterColor(int index) {
     if (index >= 0 && index < customHighlighterColors.length) {
-      if ((defaultHighlighterColors.length + customHighlighterColors.length) > 3) {
+      if ((defaultHighlighterColors.length + customHighlighterColors.length) >
+          3) {
         customHighlighterColors.removeAt(index);
         saveHighlighterColors();
         notifyListeners();
@@ -867,7 +986,8 @@ class CanvasController extends ChangeNotifier {
 
   void deleteDefaultHighlighterColor(int index) {
     if (index >= 0 && index < defaultHighlighterColors.length) {
-      if ((defaultHighlighterColors.length + customHighlighterColors.length) > 3) {
+      if ((defaultHighlighterColors.length + customHighlighterColors.length) >
+          3) {
         defaultHighlighterColors.removeAt(index);
         saveHighlighterColors();
         notifyListeners();
@@ -876,11 +996,7 @@ class CanvasController extends ChangeNotifier {
   }
 
   // --- Laser Colors Logic ---
-  List<Color> defaultLaserColors = [
-    Colors.red,
-    Colors.green,
-    Colors.blue,
-  ];
+  List<Color> defaultLaserColors = [Colors.red, Colors.green, Colors.blue];
   List<Color> customLaserColors = [];
 
   void loadLaserColors() {
@@ -900,8 +1016,14 @@ class CanvasController extends ChangeNotifier {
   void saveLaserColors() {
     try {
       final box = Hive.box('settingsBox');
-      box.put('defaultLaserColors', defaultLaserColors.map((c) => c.toARGB32()).toList());
-      box.put('customLaserColors', customLaserColors.map((c) => c.toARGB32()).toList());
+      box.put(
+        'defaultLaserColors',
+        defaultLaserColors.map((c) => c.toARGB32()).toList(),
+      );
+      box.put(
+        'customLaserColors',
+        customLaserColors.map((c) => c.toARGB32()).toList(),
+      );
     } catch (_) {}
   }
 
@@ -952,7 +1074,6 @@ class CanvasController extends ChangeNotifier {
     }
   }
 
-
   List<Color> get colors => [
     Colors.black,
     Colors.red,
@@ -967,7 +1088,6 @@ class CanvasController extends ChangeNotifier {
   ];
 
   // --- Logic Methods ---
-
 }
 
 extension TransformationControllerExtensions on TransformationController {
