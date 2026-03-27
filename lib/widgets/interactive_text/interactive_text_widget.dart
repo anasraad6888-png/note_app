@@ -165,6 +165,7 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
           widget.textData,
           _quillController,
           toggleInspector: _toggleTextInspector,
+          textContext: context,
         );
         if (mounted) {
           _isInitializing = false;
@@ -280,7 +281,7 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
       left: widget.textData.rect.left - hOffset,
       top: widget.textData.rect.top - topOffset,
       width: parentWidth,
-      height: widget.textData.rect.height + 300,
+      height: widget.textData.rect.height + 50,
       child: Transform.rotate(
         angle: widget
             .textData
@@ -346,6 +347,7 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
                                 widget.textData,
                                 _quillController,
                                 toggleInspector: _toggleTextInspector,
+                                textContext: context,
                               );
                               widget.onSelect?.call();
                               if (mounted) _focusNode.requestFocus();
@@ -365,6 +367,7 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
                               widget.textData,
                               _quillController,
                               toggleInspector: _toggleTextInspector,
+                              textContext: context,
                             );
                             widget.onSelect?.call();
                             if (mounted) _focusNode.requestFocus();

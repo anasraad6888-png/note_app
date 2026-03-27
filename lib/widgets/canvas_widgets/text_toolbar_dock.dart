@@ -23,11 +23,11 @@ class _TextToolbarDockState extends State<TextToolbarDock> {
       return const SizedBox.shrink();
     }
 
-    // Attach to keyboard properly safely at the bottom
-    final double bottomInset = MediaQuery.of(context).viewInsets.bottom;
-
+    // The outer MainScreen Scaffold already avoids the keyboard (resizeToAvoidBottomInset: true),
+    // so the inner DrawingCanvas body's bottom edge is already at the keyboard top.
+    // We just need a small gap (8px) from the body bottom.
     return Positioned(
-      bottom: bottomInset + 8, // Ensure it floats above keyboard
+      bottom: 8, // The outer Scaffold's resize already puts us just above the keyboard
       left: 8,
       right: 8,
       child: TapRegion(

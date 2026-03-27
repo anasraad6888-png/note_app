@@ -93,6 +93,19 @@ class CanvasToolPalette extends StatelessWidget {
 
   Widget _buildSideSliders(BuildContext context) {
     if (!canvasCtrl.isZoomSliderVisible) return const SizedBox.shrink();
+
+    // Compute the minimum allowed scale: the scale at which all pages
+    // fit exactly in the viewport (height-driven, as pages are taller than they are wide).
+    final screenSize = canvasCtrl.viewportSize ?? MediaQuery.of(context).size;
+    final int pageCount = canvasCtrl.pagesPoints.isNotEmpty
+        ? canvasCtrl.pagesPoints.length
+        : 1;
+    final double totalContentH = 16.0 + pageCount * 940.0 + 16.0;
+    final double minScaleH = screenSize.height / totalContentH;
+    final double minScaleW = screenSize.width / 700.0;
+    final double minScale = (minScaleH < minScaleW ? minScaleH : minScaleW)
+        .clamp(0.05, 1.0);
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -109,16 +122,20 @@ class CanvasToolPalette extends StatelessWidget {
           ),
           child: RotatedBox(
             quarterTurns: 3,
-            child: Slider(
-              value: canvasCtrl.transformationController.value
-                  .getMaxScaleOnAxis()
-                  .clamp(0.2, 5.0),
-              min: 0.2,
-              max: 5.0,
-              activeColor: Colors.blueGrey,
-              inactiveColor: Colors.grey.shade300,
-              onChanged: (val) =>
-                  canvasCtrl.setZoom(val, MediaQuery.of(context).size),
+            child: ValueListenableBuilder<Matrix4>(
+              valueListenable: canvasCtrl.transformationController,
+              builder: (context, matrix, _) {
+                final currentScale = matrix.getMaxScaleOnAxis().clamp(minScale, 5.0);
+                return Slider(
+                  value: currentScale,
+                  min: minScale,
+                  max: 5.0,
+                  activeColor: Colors.blueGrey,
+                  inactiveColor: Colors.grey.shade300,
+                  onChanged: (val) =>
+                      canvasCtrl.setZoom(val, MediaQuery.of(context).size),
+                );
+              },
             ),
           ),
         ),

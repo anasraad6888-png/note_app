@@ -66,6 +66,7 @@ class CanvasController extends ChangeNotifier {
   bool isRulerVisible = false;
   ToolbarPosition toolbarPosition = ToolbarPosition.bottom;
   bool isDarkMode;
+  Size? viewportSize;
   VoidCallback? onDarkModeToggle;
   VoidCallback? onShowPagesGridDialog;
   VoidCallback? onDocumentClose;
@@ -75,19 +76,18 @@ class CanvasController extends ChangeNotifier {
   PageText? activeEditingText;
   quill.QuillController? activeQuillController;
   VoidCallback? toggleTextInspector;
-  Matrix4? _preKeyboardMatrix;
+  BuildContext? activeEditingContext; // context of the text widget being edited
 
   void startEditingText(
     PageText text,
     quill.QuillController controller, {
     VoidCallback? toggleInspector,
+    BuildContext? textContext,
   }) {
-    if (activeEditingText == null && _preKeyboardMatrix == null) {
-      _preKeyboardMatrix = transformationController.value.clone();
-    }
     activeEditingText = text;
     activeQuillController = controller;
     toggleTextInspector = toggleInspector;
+    activeEditingContext = textContext;
     notifyListeners();
   }
 
@@ -96,13 +96,60 @@ class CanvasController extends ChangeNotifier {
     activeEditingText = null;
     activeQuillController = null;
     toggleTextInspector = null;
-
-    if (_preKeyboardMatrix != null) {
-      transformationController.value = _preKeyboardMatrix!;
-      _preKeyboardMatrix = null;
-    }
-
+    activeEditingContext = null;
     notifyListeners();
+  }
+
+  /// Auto-scrolls the canvas (paged mode) so the active text box is visible
+  /// above the keyboard. Call this whenever the keyboard height changes.
+  void scrollToActiveText(double keyboardHeight, double screenHeight) {
+    if (activeEditingText == null) return;
+    if (!scrollController.hasClients) return;
+    if (keyboardHeight < 100) return; // Keyboard not meaningfully open
+
+    final pageIndex = currentPageIndex;
+    final textRect = activeEditingText!.rect;
+
+    // ListView padding top: 80, page vertical padding: 20 each side, page height: 900
+    // => each page slot = 940px, page top = 80 + pageIndex * 940 + 20
+    const double listTopPadding = 80.0;
+    const double pageSlotHeight = 940.0;
+    const double pageTopPadding = 20.0;
+    final double pageTopInScroll =
+        listTopPadding + pageIndex * pageSlotHeight + pageTopPadding;
+
+    // Y-center of text box in scroll space
+    final double textCenterY =
+        pageTopInScroll + textRect.top + textRect.height / 2;
+
+    // Visible region between top toolbar (~60px) and keyboard + text toolbar (~130px)
+    const double topClearance = 60.0;
+    final double bottomClearance = keyboardHeight + 70.0; // text toolbar ~70px
+    final double visibleHeight =
+        (screenHeight - topClearance - bottomClearance).clamp(100.0, double.infinity);
+
+    // Desired scroll: text center lands in the middle of the visible region
+    final double desired =
+        textCenterY - topClearance - visibleHeight / 2;
+
+    final double clamped = desired.clamp(
+      0.0,
+      scrollController.position.maxScrollExtent,
+    );
+
+    // Only scroll if the text is not already fully visible
+    final double currentOffset = scrollController.offset;
+    final double visibleTop = currentOffset + topClearance;
+    final double visibleBottom = currentOffset + screenHeight - bottomClearance;
+    final double textTop = pageTopInScroll + textRect.top;
+    final double textBottom = textTop + textRect.height;
+    if (textTop >= visibleTop && textBottom <= visibleBottom) return;
+
+    scrollController.animateTo(
+      clamped,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
   }
 
   void forceTextFocusReclamation() {
@@ -394,49 +441,6 @@ class CanvasController extends ChangeNotifier {
         _currentlyExtractingPage = null;
       await textRecognizer.close();
       notifyListeners();
-    }
-  }
-
-  void panToVisibleSafeZone(BuildContext context) {
-    if (isPanZoomMode) return;
-    try {
-      final view = View.of(context);
-      final double screenHeight = view.physicalSize.height / view.devicePixelRatio;
-      final double keyboardHeight = view.viewInsets.bottom / view.devicePixelRatio;
-
-      // Hardware Spring Restoration: When keyboard fully retracts, snap perfectly to original layout bounds
-      if (keyboardHeight < 10) {
-        if (_preKeyboardMatrix != null && activeEditingText != null) {
-          transformationController.value = _preKeyboardMatrix!;
-        }
-        return; 
-      }
-
-      final safeZoneTop = 140.0; // Top toolbars padding
-      final safeZoneBottom = screenHeight - keyboardHeight;
-      final safeZoneCenterY = (safeZoneTop + safeZoneBottom) / 2;
-
-      final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
-      if (renderBox == null) return;
-
-      final Offset screenTopLeft = renderBox.localToGlobal(Offset.zero);
-      final matrix = transformationController.value;
-      final double scale = matrix.getMaxScaleOnAxis();
-
-      // InteractiveTextWidget has an absolute internal topOffset of 150 (scaled globally)
-      final double visualTextTopY = screenTopLeft.dy + (150.0 * scale);
-
-      if (visualTextTopY > safeZoneBottom - 50 || visualTextTopY < safeZoneTop + 50) {
-        final double dyDifference = safeZoneCenterY - visualTextTopY;
-
-        // Block insane hardware glitch offsets natively ensuring stability
-        if (dyDifference.abs() > 2000) return;
-
-        // Translate the camera matrix inversely scaled to local coordinates
-        transformationController.value = matrix.clone()..translate(0.0, dyDifference / scale);
-      }
-    } catch (e) {
-      // Gracefully ignore pan matrix calculation errors
     }
   }
 

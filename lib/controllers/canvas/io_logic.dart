@@ -83,7 +83,7 @@ extension CanvasIOLogic on CanvasController {
   void _scheduleThumbnailGeneration() {
     final index = currentPageIndex;
     if (index < 0 || index >= pagesScreenshotControllers.length) return;
-    
+
     _thumbnailTimer?.cancel();
     _thumbnailTimer = Timer(const Duration(milliseconds: 1500), () async {
       if (_isDisposed) return;
@@ -276,7 +276,7 @@ extension CanvasIOLogic on CanvasController {
       } else {
         pagesBookmarks.add(false);
       }
-      
+
       if (i < document.pageOutlines.length) {
         pagesOutlines.add(document.pageOutlines[i]);
       } else {
@@ -300,5 +300,4 @@ extension CanvasIOLogic on CanvasController {
     purgeStaleImages();
     notifyListeners();
   }
-
 }

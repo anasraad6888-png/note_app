@@ -324,9 +324,23 @@ extension CanvasDrawingLogic on CanvasController {
 
   void setZoom(double scale, Size screenSize) {
     if (screenSize.width <= 0 || screenSize.height <= 0) return;
+    
+    // Use the exact viewport size saved from LayoutBuilder,
+    // fallback to provided screenSize (MediaQuery) if not set.
+    final Size actualScreenSize = viewportSize ?? screenSize;
+
+    // Clamp to computed minScale so content always fills viewport vertically.
+    final int pageCount =
+        document.pages.isNotEmpty ? document.pages.length : 1;
+    final double totalContentH = 16.0 + pageCount * 940.0 + 16.0;
+    final double minScaleH = actualScreenSize.height / totalContentH;
+    final double minScaleW = actualScreenSize.width / 700.0;
+    final double minAllowed =
+        (minScaleH < minScaleW ? minScaleH : minScaleW).clamp(0.05, 1.0);
+    final double clampedScale = scale.clamp(minAllowed, 20.0);
 
     final currentScale = transformationController.value.getMaxScaleOnAxis();
-    if (scale == currentScale || scale <= 0) return;
+    if (clampedScale == currentScale || clampedScale <= 0) return;
 
     final screenCenter = Offset(screenSize.width / 2, screenSize.height / 2);
 
@@ -334,14 +348,21 @@ extension CanvasDrawingLogic on CanvasController {
     final sceneCenter = transformationController.toScene(screenCenter);
 
     // Zoom around the center of the screen
-    final newMatrix = Matrix4.identity()
+    Matrix4 newMatrix = Matrix4.identity()
       ..translate(screenCenter.dx, screenCenter.dy)
-      ..scale(scale)
+      ..scale(clampedScale)
       ..translate(-sceneCenter.dx, -sceneCenter.dy);
 
     // Safety check for invalid values (prevent crash)
     if (newMatrix.storage.any((v) => v.isNaN || v.isInfinite)) {
       return;
+    }
+
+    // Clamp vertical translation: content top must not be below viewport top
+    // (prevents gray area appearing above page 1 after zoom).
+    final double ty = newMatrix.getTranslation().y;
+    if (ty > 0) {
+      newMatrix.setTranslationRaw(newMatrix.getTranslation().x, 0, 0);
     }
 
     transformationController.value = newMatrix;
