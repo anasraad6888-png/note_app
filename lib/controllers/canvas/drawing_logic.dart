@@ -593,6 +593,47 @@ extension CanvasDrawingLogic on CanvasController {
     });
   }
 
+  void cancelCurrentStroke(int pageIndex) {
+    if (pageIndex >= pagesPoints.length) return;
+
+    // Cancel any active hold timers
+    penHoldTimer?.cancel();
+    isPenHoldTriggered = false;
+    highlighterHoldTimer?.cancel();
+    isHighlighterHoldTriggered = false;
+
+    // Cancel active drawing/highlighting strokes (remove points of the interrupted stroke)
+    if (pagesPoints[pageIndex].isNotEmpty && pagesPoints[pageIndex].last != null) {
+      while (pagesPoints[pageIndex].isNotEmpty && pagesPoints[pageIndex].last != null) {
+        pagesPoints[pageIndex].removeLast();
+      }
+    }
+
+    // Cancel active shapes
+    if (isShapeMode && currentDrawingShape != null) {
+      currentDrawingShape = null;
+      shapeStartPos = null;
+    }
+
+    // Cancel active tables
+    if (isTableMode && currentDrawingTable != null) {
+      currentDrawingTable = null;
+      tableStartPos = null;
+    }
+
+    // Cancel active lassos
+    if (isLassoMode && lassoPath != null) {
+      lassoPath = null;
+    }
+
+    _lastPointTime = null;
+    _lastPointOffset = null;
+    _rulerLastSnappedPoint = null;
+    activeStrokeLength = null;
+
+    notifyContentChanged();
+  }
+
   void addHighlighterPoint(int pageIndex, Offset? offset,
       {Offset? globalPosition}) {
     ensurePageExists(pageIndex);

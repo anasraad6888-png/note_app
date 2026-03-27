@@ -62,6 +62,15 @@ class CanvasController extends ChangeNotifier {
   bool isLassoMode = false;
   bool isLaserMode = false;
   bool isPanZoomMode = false;
+  bool isMultiTouchPan = false;
+  
+  void setMultiTouchPan(bool value) {
+    if (isMultiTouchPan != value) {
+      isMultiTouchPan = value;
+      notifyListeners();
+    }
+  }
+
   bool isZoomSliderVisible = false;
   bool isRulerVisible = false;
   ToolbarPosition toolbarPosition = ToolbarPosition.bottom;

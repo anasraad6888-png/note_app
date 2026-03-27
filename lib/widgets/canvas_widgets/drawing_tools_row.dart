@@ -28,8 +28,10 @@ class DrawingToolsRow extends StatelessWidget {
     final coralGlow = const Color(0xFFFF7F6A); // Soft salmon/coral
 
     bool isBasePen = !canvasCtrl.isLassoMode && !canvasCtrl.isEraserMode && !canvasCtrl.isHighlighterMode && !canvasCtrl.isLaserMode && !canvasCtrl.isPanZoomMode && !canvasCtrl.isTextMode && !canvasCtrl.isShapeMode && !canvasCtrl.isTableMode;
-    bool isBrush = isBasePen && canvasCtrl.currentPenType == PenType.brush;
-    bool isPen = isBasePen && canvasCtrl.currentPenType != PenType.brush;
+    bool isTemporarilyPanning = canvasCtrl.isMultiTouchPan && !canvasCtrl.isPanZoomMode;
+
+    bool isBrush = isBasePen && canvasCtrl.currentPenType == PenType.brush && !isTemporarilyPanning;
+    bool isPen = isBasePen && canvasCtrl.currentPenType != PenType.brush && !isTemporarilyPanning;
 
     final topRow = <Widget>[
        GlowingToolButton(
@@ -66,7 +68,7 @@ class DrawingToolsRow extends StatelessWidget {
        ),
        GlowingToolButton(
          icon: Icons.border_color,
-         isActive: canvasCtrl.isHighlighterMode,
+         isActive: canvasCtrl.isHighlighterMode && !isTemporarilyPanning,
          activeColor: coralGlow,
          tooltip: 'تظليل',
          onTap: () {
@@ -76,7 +78,7 @@ class DrawingToolsRow extends StatelessWidget {
        ),
        GlowingToolButton(
          icon: LucideIcons.lasso,
-         isActive: canvasCtrl.isLassoMode,
+         isActive: canvasCtrl.isLassoMode && !isTemporarilyPanning,
          activeColor: coralGlow,
          tooltip: 'تحديد',
          onTap: () {
@@ -86,7 +88,7 @@ class DrawingToolsRow extends StatelessWidget {
        ),
        GlowingToolButton(
          icon: LucideIcons.type,
-         isActive: canvasCtrl.isTextMode,
+         isActive: canvasCtrl.isTextMode && !isTemporarilyPanning,
          activeColor: coralGlow,
          tooltip: 'نص',
          onTap: () {
@@ -96,7 +98,7 @@ class DrawingToolsRow extends StatelessWidget {
        ),
        GlowingToolButton(
          icon: LucideIcons.eraser,
-         isActive: canvasCtrl.isEraserMode,
+         isActive: canvasCtrl.isEraserMode && !isTemporarilyPanning,
          activeColor: coralGlow,
          tooltip: 'ممحاة',
          onTap: () {
@@ -142,7 +144,7 @@ class DrawingToolsRow extends StatelessWidget {
     final bottomRow = <Widget>[
        GlowingToolButton(
          icon: Icons.stream,
-         isActive: canvasCtrl.isLaserMode,
+         isActive: canvasCtrl.isLaserMode && !isTemporarilyPanning,
          activeColor: coralGlow,
          tooltip: 'ليزر',
          onTap: () {
@@ -152,7 +154,7 @@ class DrawingToolsRow extends StatelessWidget {
        ),
        GlowingToolButton(
          icon: LucideIcons.hand,
-         isActive: canvasCtrl.isPanZoomMode,
+         isActive: canvasCtrl.isPanZoomMode || isTemporarilyPanning,
          activeColor: coralGlow,
          tooltip: 'تحريك',
          onTap: () {

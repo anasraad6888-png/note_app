@@ -68,6 +68,7 @@ class _DrawingCanvasState extends State<DrawingCanvas>
   late AudioController audioCtrl;
   late CanvasController canvasCtrl;
   int _pointerCount = 0;
+  bool _hasMultiTouchInCurrentGesture = false;
   bool _isSpacePressed = false;
   bool _isStylusButtonPressed = false;
   bool _infiniteCentered = false;
@@ -75,6 +76,7 @@ class _DrawingCanvasState extends State<DrawingCanvas>
   bool get _shouldNavigate {
     return canvasCtrl.isPanZoomMode ||
         _pointerCount > 1 ||
+        _hasMultiTouchInCurrentGesture ||
         _isSpacePressed ||
         _isStylusButtonPressed;
   }
@@ -232,18 +234,38 @@ class _DrawingCanvasState extends State<DrawingCanvas>
                   _pointerCount++;
                   if (isStylus) _isStylusButtonPressed = true;
                 });
+                if (_pointerCount > 1) {
+                  _hasMultiTouchInCurrentGesture = true;
+                  canvasCtrl.setMultiTouchPan(true);
+                }
               },
               onPointerUp: (e) {
                 setState(() {
                   _pointerCount--;
                   _isStylusButtonPressed = false;
+                  if (_pointerCount == 0) {
+                    _hasMultiTouchInCurrentGesture = false;
+                  }
                 });
+                if (_pointerCount <= 1 && !_hasMultiTouchInCurrentGesture) {
+                  canvasCtrl.setMultiTouchPan(false);
+                } else if (_pointerCount == 0) {
+                  canvasCtrl.setMultiTouchPan(false);
+                }
               },
               onPointerCancel: (e) {
                 setState(() {
                   _pointerCount--;
                   _isStylusButtonPressed = false;
+                  if (_pointerCount == 0) {
+                    _hasMultiTouchInCurrentGesture = false;
+                  }
                 });
+                if (_pointerCount <= 1 && !_hasMultiTouchInCurrentGesture) {
+                  canvasCtrl.setMultiTouchPan(false);
+                } else if (_pointerCount == 0) {
+                  canvasCtrl.setMultiTouchPan(false);
+                }
               },
               child: RepaintBoundary(
                 key: canvasCtrl.canvasRepaintKey,
@@ -802,6 +824,13 @@ class _DrawingCanvasState extends State<DrawingCanvas>
   Widget _buildPageInteractionLayer(int index) {
     return Listener(
       onPointerDown: (event) {
+        // Because the inner Listener receives onPointerDown BEFORE the outer Listener,
+        // _pointerCount here does NOT yet include the newly placed finger.
+        // Therefore, if _pointerCount > 0, we already have another finger on the screen!
+        if (_pointerCount > 0 || _hasMultiTouchInCurrentGesture) {
+          canvasCtrl.cancelCurrentStroke(index);
+          return;
+        }
         if (_shouldNavigate) return;
         if (canvasCtrl.penPalmRejection && event.radiusMajor > 20.0) return;
 
@@ -857,6 +886,10 @@ class _DrawingCanvasState extends State<DrawingCanvas>
         }
       },
       onPointerMove: (event) {
+        if (_pointerCount > 1 || _hasMultiTouchInCurrentGesture) {
+          canvasCtrl.cancelCurrentStroke(index);
+          return;
+        }
         if (_shouldNavigate) return;
         if (canvasCtrl.penPalmRejection && event.radiusMajor > 20.0) return;
 
@@ -899,6 +932,10 @@ class _DrawingCanvasState extends State<DrawingCanvas>
         }
       },
       onPointerUp: (event) {
+        if (_pointerCount > 1 || _hasMultiTouchInCurrentGesture) {
+          canvasCtrl.cancelCurrentStroke(index);
+          return;
+        }
         if (_shouldNavigate) return;
         if (canvasCtrl.penPalmRejection && event.radiusMajor > 20.0) return;
 
