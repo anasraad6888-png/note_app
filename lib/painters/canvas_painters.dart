@@ -106,6 +106,450 @@ void _drawCosineWave(
   }
 }
 
+void _drawStar(Canvas canvas, Rect rect, Paint paint, {bool isDashed = false}) {
+  final path = Path();
+  final double cx = rect.center.dx;
+  final double cy = rect.center.dy;
+  final double r = math.min(rect.width, rect.height) / 2;
+  final double innerR = r * 0.4;
+  final double step = math.pi / 5;
+  double angle = -math.pi / 2;
+  for (int i = 0; i < 10; i++) {
+    double radius = (i % 2 == 0) ? r : innerR;
+    double x = cx + math.cos(angle) * radius;
+    double y = cy + math.sin(angle) * radius;
+    if (i == 0) path.moveTo(x, y);
+    else path.lineTo(x, y);
+    angle += step;
+  }
+  path.close();
+  if (isDashed) _drawDashedPath(canvas, path, paint);
+  else canvas.drawPath(path, paint);
+}
+
+void _drawDiamond(Canvas canvas, Rect rect, Paint paint, {bool isDashed = false}) {
+  final path = Path()
+    ..moveTo(rect.center.dx, rect.top)
+    ..lineTo(rect.right, rect.center.dy)
+    ..lineTo(rect.center.dx, rect.bottom)
+    ..lineTo(rect.left, rect.center.dy)
+    ..close();
+  if (isDashed) _drawDashedPath(canvas, path, paint);
+  else canvas.drawPath(path, paint);
+}
+
+void _drawPentagon(Canvas canvas, Rect rect, Paint paint, {bool isDashed = false}) {
+  final path = Path();
+  final double cx = rect.center.dx;
+  final double cy = rect.center.dy;
+  final double r = math.min(rect.width, rect.height) / 2;
+  final double step = math.pi * 2 / 5;
+  double angle = -math.pi / 2;
+  for (int i = 0; i < 5; i++) {
+    double x = cx + math.cos(angle) * r;
+    double y = cy + math.sin(angle) * r;
+    if (i == 0) path.moveTo(x, y);
+    else path.lineTo(x, y);
+    angle += step;
+  }
+  path.close();
+  if (isDashed) _drawDashedPath(canvas, path, paint);
+  else canvas.drawPath(path, paint);
+}
+
+void _drawHexagon(Canvas canvas, Rect rect, Paint paint, {bool isDashed = false}) {
+  final path = Path();
+  final double cx = rect.center.dx;
+  final double cy = rect.center.dy;
+  final double r = math.min(rect.width, rect.height) / 2;
+  final double step = math.pi * 2 / 6;
+  double angle = -math.pi / 2;
+  for (int i = 0; i < 6; i++) {
+    double x = cx + math.cos(angle) * r;
+    double y = cy + math.sin(angle) * r;
+    if (i == 0) path.moveTo(x, y);
+    else path.lineTo(x, y);
+    angle += step;
+  }
+  path.close();
+  if (isDashed) _drawDashedPath(canvas, path, paint);
+  else canvas.drawPath(path, paint);
+}
+
+void _drawCross(Canvas canvas, Rect rect, Paint paint, {bool isDashed = false}) {
+  final w = rect.width;
+  final h = rect.height;
+  final cx = rect.center.dx;
+  final cy = rect.center.dy;
+  final qw = w * 0.2;
+  final qh = h * 0.2;
+  final path = Path()
+    ..moveTo(cx - qw, rect.top)..lineTo(cx + qw, rect.top)
+    ..lineTo(cx + qw, cy - qh)..lineTo(rect.right, cy - qh)
+    ..lineTo(rect.right, cy + qh)..lineTo(cx + qw, cy + qh)
+    ..lineTo(cx + qw, rect.bottom)..lineTo(cx - qw, rect.bottom)
+    ..lineTo(cx - qw, cy + qh)..lineTo(rect.left, cy + qh)
+    ..lineTo(rect.left, cy - qh)..lineTo(cx - qw, cy - qh)
+    ..close();
+  if (isDashed) _drawDashedPath(canvas, path, paint);
+  else canvas.drawPath(path, paint);
+}
+
+void _drawCloud(Canvas canvas, Rect rect, Paint paint, {bool isDashed = false}) {
+  final path = Path();
+  final w = rect.width;
+  final h = rect.height;
+  final l = rect.left;
+  final t = rect.top;
+  path.moveTo(l + w * 0.2, t + h * 0.6);
+  path.cubicTo(l, t + h * 0.6, l, t + h * 0.9, l + w * 0.2, t + h * 0.9);
+  path.cubicTo(l + w * 0.4, t + h * 1.1, l + w * 0.7, t + h * 0.9, l + w * 0.8, t + h * 0.9);
+  path.cubicTo(l + w, t + h * 0.9, l + w, t + h * 0.6, l + w * 0.8, t + h * 0.5);
+  path.cubicTo(l + w * 0.9, t + h * 0.1, l + w * 0.4, t, l + w * 0.3, t + h * 0.4);
+  path.cubicTo(l + w * 0.1, t + h * 0.2, l, t + h * 0.4, l + w * 0.2, t + h * 0.6);
+  path.close();
+  if (isDashed) _drawDashedPath(canvas, path, paint);
+  else canvas.drawPath(path, paint);
+}
+
+void _drawHeart(Canvas canvas, Rect rect, Paint paint, {bool isDashed = false}) {
+  final path = Path();
+  final w = rect.width;
+  final h = rect.height;
+  final cx = rect.center.dx;
+  final t = rect.top;
+  path.moveTo(cx, t + h * 0.3);
+  path.cubicTo(cx - w * 0.5, t - h * 0.2, rect.left - w * 0.1, t + h * 0.5, cx, rect.bottom);
+  path.cubicTo(rect.right + w * 0.1, t + h * 0.5, cx + w * 0.5, t - h * 0.2, cx, t + h * 0.3);
+  path.close();
+  if (isDashed) _drawDashedPath(canvas, path, paint);
+  else canvas.drawPath(path, paint);
+}
+
+void _drawCylinder(Canvas canvas, Rect rect, Paint paint, {bool isDashed = false}) {
+  final path = Path();
+  final w = rect.width;
+  final h = rect.height;
+  final rx = w / 2;
+  final ry = h * 0.15;
+  path.addOval(Rect.fromCenter(center: Offset(rect.center.dx, rect.top + ry), width: w, height: ry * 2));
+  path.moveTo(rect.left, rect.top + ry);
+  path.lineTo(rect.left, rect.bottom - ry);
+  path.arcToPoint(Offset(rect.right, rect.bottom - ry), radius: Radius.elliptical(rx, ry), clockwise: false);
+  path.lineTo(rect.right, rect.top + ry);
+  if (isDashed) _drawDashedPath(canvas, path, paint);
+  else canvas.drawPath(path, paint);
+}
+
+void _drawCube(Canvas canvas, Rect rect, Paint paint, {bool isDashed = false}) {
+  final path = Path();
+  final offset = math.min(rect.width, rect.height) * 0.25;
+  final w = rect.width - offset;
+  final h = rect.height - offset;
+  final l = rect.left;
+  final t = rect.top;
+  path.addRect(Rect.fromLTWH(l, t + offset, w, h));
+  path.addRect(Rect.fromLTWH(l + offset, t, w, h));
+  path.moveTo(l, t + offset);
+  path.lineTo(l + offset, t);
+  path.moveTo(l + w, t + offset);
+  path.lineTo(l + w + offset, t);
+  path.moveTo(l, t + offset + h);
+  path.lineTo(l + offset, t + h);
+  path.moveTo(l + w, t + offset + h);
+  path.lineTo(l + w + offset, t + h);
+  if (isDashed) _drawDashedPath(canvas, path, paint);
+  else canvas.drawPath(path, paint);
+}
+
+void _drawParallelogram(Canvas canvas, Rect rect, Paint paint, {bool isDashed = false}) {
+  final path = Path();
+  final offset = rect.width * 0.2;
+  path.moveTo(rect.left + offset, rect.top);
+  path.lineTo(rect.right, rect.top);
+  path.lineTo(rect.right - offset, rect.bottom);
+  path.lineTo(rect.left, rect.bottom);
+  path.close();
+  if (isDashed) _drawDashedPath(canvas, path, paint);
+  else canvas.drawPath(path, paint);
+}
+
+void _drawOctagon(Canvas canvas, Rect rect, Paint paint, {bool isDashed = false}) {
+  final path = Path();
+  final double cx = rect.center.dx;
+  final double cy = rect.center.dy;
+  final double r = math.min(rect.width, rect.height) / 2;
+  final double step = math.pi * 2 / 8;
+  double angle = -math.pi / 2 + (math.pi / 8);
+  for (int i = 0; i < 8; i++) {
+    double x = cx + math.cos(angle) * r;
+    double y = cy + math.sin(angle) * r;
+    if (i == 0) path.moveTo(x, y);
+    else path.lineTo(x, y);
+    angle += step;
+  }
+  path.close();
+  if (isDashed) _drawDashedPath(canvas, path, paint);
+  else canvas.drawPath(path, paint);
+}
+
+void _drawHeptagon(Canvas canvas, Rect rect, Paint paint, {bool isDashed = false}) {
+  final path = Path();
+  final double cx = rect.center.dx;
+  final double cy = rect.center.dy;
+  final double r = math.min(rect.width, rect.height) / 2;
+  final double step = math.pi * 2 / 7;
+  double angle = -math.pi / 2;
+  for (int i = 0; i < 7; i++) {
+    double x = cx + math.cos(angle) * r;
+    double y = cy + math.sin(angle) * r;
+    if (i == 0) path.moveTo(x, y);
+    else path.lineTo(x, y);
+    angle += step;
+  }
+  path.close();
+  if (isDashed) _drawDashedPath(canvas, path, paint);
+  else canvas.drawPath(path, paint);
+}
+
+void _drawTrapezoid(Canvas canvas, Rect rect, Paint paint, {bool isDashed = false}) {
+  final path = Path();
+  final double offset = rect.width * 0.2;
+  path.moveTo(rect.left + offset, rect.top);
+  path.lineTo(rect.right - offset, rect.top);
+  path.lineTo(rect.right, rect.bottom);
+  path.lineTo(rect.left, rect.bottom);
+  path.close();
+  if (isDashed) _drawDashedPath(canvas, path, paint);
+  else canvas.drawPath(path, paint);
+}
+
+void _drawSemiCircle(Canvas canvas, Rect rect, Paint paint, {bool isDashed = false}) {
+  final path = Path();
+  final r = math.min(rect.width, rect.height) / 2;
+  path.moveTo(rect.center.dx - r, rect.center.dy);
+  path.arcToPoint(
+    Offset(rect.center.dx + r, rect.center.dy),
+    radius: Radius.circular(r),
+    clockwise: true,
+  );
+  path.close();
+  if (isDashed) _drawDashedPath(canvas, path, paint);
+  else canvas.drawPath(path, paint);
+}
+
+void _drawRightTriangle(Canvas canvas, Rect rect, Paint paint, {bool isDashed = false}) {
+  final path = Path()
+    ..moveTo(rect.left, rect.top)
+    ..lineTo(rect.right, rect.bottom)
+    ..lineTo(rect.left, rect.bottom)
+    ..close();
+  if (isDashed) _drawDashedPath(canvas, path, paint);
+  else canvas.drawPath(path, paint);
+}
+
+void _drawXMark(Canvas canvas, Rect rect, Paint paint, {bool isDashed = false}) {
+  final path = Path();
+  final offset = math.min(rect.width, rect.height) * 0.15;
+  final l = rect.left;
+  final t = rect.top;
+  final r = rect.right;
+  final b = rect.bottom;
+  final cx = rect.center.dx;
+  final cy = rect.center.dy;
+  
+  path.moveTo(l + offset, t);
+  path.lineTo(cx, cy - offset);
+  path.lineTo(r - offset, t);
+  path.lineTo(r, t + offset);
+  path.lineTo(cx + offset, cy);
+  path.lineTo(r, b - offset);
+  path.lineTo(r - offset, b);
+  path.lineTo(cx, cy + offset);
+  path.lineTo(l + offset, b);
+  path.lineTo(l, b - offset);
+  path.lineTo(cx - offset, cy);
+  path.lineTo(l, t + offset);
+  path.close();
+  if (isDashed) _drawDashedPath(canvas, path, paint);
+  else canvas.drawPath(path, paint);
+}
+
+void _drawTeardrop(Canvas canvas, Rect rect, Paint paint, {bool isDashed = false}) {
+  final path = Path();
+  final r = math.min(rect.width, rect.height) / 2;
+  final cx = rect.center.dx;
+  final cy = rect.center.dy + r * 0.2;
+  path.moveTo(cx, rect.top);
+  path.cubicTo(
+    cx + r * 0.8, cy - r * 0.5, 
+    cx + r, cy + r * 0.8, 
+    cx, cy + r * 0.8
+  );
+  path.cubicTo(
+    cx - r, cy + r * 0.8, 
+    cx - r * 0.8, cy - r * 0.5, 
+    cx, rect.top
+  );
+  path.close();
+  if (isDashed) _drawDashedPath(canvas, path, paint);
+  else canvas.drawPath(path, paint);
+}
+
+void _drawSpeechBubble(Canvas canvas, Rect rect, Paint paint, {bool isDashed = false}) {
+  final path = Path();
+  final double r = math.min(rect.width, rect.height) * 0.2;
+  final h = rect.height * 0.8;
+  
+  path.moveTo(rect.left + r, rect.top);
+  path.lineTo(rect.right - r, rect.top);
+  path.arcToPoint(Offset(rect.right, rect.top + r), radius: Radius.circular(r), clockwise: true);
+  path.lineTo(rect.right, rect.top + h - r);
+  path.arcToPoint(Offset(rect.right - r, rect.top + h), radius: Radius.circular(r), clockwise: true);
+  
+  path.lineTo(rect.right - rect.width * 0.3, rect.top + h);
+  path.lineTo(rect.right - rect.width * 0.4, rect.bottom);
+  path.lineTo(rect.right - rect.width * 0.5, rect.top + h);
+  
+  path.lineTo(rect.left + r, rect.top + h);
+  path.arcToPoint(Offset(rect.left, rect.top + h - r), radius: Radius.circular(r), clockwise: true);
+  path.lineTo(rect.left, rect.top + r);
+  path.arcToPoint(Offset(rect.left + r, rect.top), radius: Radius.circular(r), clockwise: true);
+  path.close();
+  if (isDashed) _drawDashedPath(canvas, path, paint);
+  else canvas.drawPath(path, paint);
+}
+
+void _drawCrescent(Canvas canvas, Rect rect, Paint paint, {bool isDashed = false}) {
+  final path = Path();
+  final r = math.min(rect.width, rect.height) / 2;
+  final cx = rect.center.dx;
+  final cy = rect.center.dy;
+  
+  path.moveTo(cx, cy - r);
+  path.arcToPoint(
+    Offset(cx, cy + r),
+    radius: Radius.circular(r),
+    clockwise: false,
+  );
+  path.quadraticBezierTo(
+    cx - r * 0.5, cy,
+    cx, cy - r
+  );
+  path.close();
+  
+  if (isDashed) _drawDashedPath(canvas, path, paint);
+  else canvas.drawPath(path, paint);
+}
+
+void _drawFlag(Canvas canvas, Rect rect, Paint paint, {bool isDashed = false}) {
+  final path = Path();
+  final poleW = rect.width * 0.05;
+  path.moveTo(rect.left, rect.bottom);
+  path.lineTo(rect.left, rect.top);
+  path.lineTo(rect.right, rect.top + rect.height * 0.25);
+  path.lineTo(rect.left + poleW, rect.top + rect.height * 0.5);
+  path.lineTo(rect.left + poleW, rect.bottom);
+  path.close();
+  if (isDashed) _drawDashedPath(canvas, path, paint);
+  else canvas.drawPath(path, paint);
+}
+
+void _drawUnifiedShape(Canvas canvas, Rect rect, String type, Paint paint, {bool isDashed = false}) {
+  if (isDashed) {
+    if (type == 'line') _drawDashedLine(canvas, rect.topLeft, rect.bottomRight, paint);
+    else if (type == 'arrow') _drawArrow(canvas, rect.topLeft, rect.bottomRight, paint, isDashed: true);
+    else if (type == 'sin') _drawSineWave(canvas, rect, paint, isDashed: true);
+    else if (type == 'cos') _drawCosineWave(canvas, rect, paint, isDashed: true);
+    else if (type == 'star') _drawStar(canvas, rect, paint, isDashed: true);
+    else if (type == 'diamond') _drawDiamond(canvas, rect, paint, isDashed: true);
+    else if (type == 'pentagon') _drawPentagon(canvas, rect, paint, isDashed: true);
+    else if (type == 'hexagon') _drawHexagon(canvas, rect, paint, isDashed: true);
+    else if (type == 'cross') _drawCross(canvas, rect, paint, isDashed: true);
+    else if (type == 'cloud') _drawCloud(canvas, rect, paint, isDashed: true);
+    else if (type == 'heart') _drawHeart(canvas, rect, paint, isDashed: true);
+    else if (type == 'cylinder') _drawCylinder(canvas, rect, paint, isDashed: true);
+    else if (type == 'cube') _drawCube(canvas, rect, paint, isDashed: true);
+    else if (type == 'parallelogram') _drawParallelogram(canvas, rect, paint, isDashed: true);
+    else if (type == 'octagon') _drawOctagon(canvas, rect, paint, isDashed: true);
+    else if (type == 'heptagon') _drawHeptagon(canvas, rect, paint, isDashed: true);
+    else if (type == 'trapezoid') _drawTrapezoid(canvas, rect, paint, isDashed: true);
+    else if (type == 'semi_circle') _drawSemiCircle(canvas, rect, paint, isDashed: true);
+    else if (type == 'right_triangle') _drawRightTriangle(canvas, rect, paint, isDashed: true);
+    else if (type == 'x_mark') _drawXMark(canvas, rect, paint, isDashed: true);
+    else if (type == 'teardrop') _drawTeardrop(canvas, rect, paint, isDashed: true);
+    else if (type == 'speech_bubble') _drawSpeechBubble(canvas, rect, paint, isDashed: true);
+    else if (type == 'crescent') _drawCrescent(canvas, rect, paint, isDashed: true);
+    else if (type == 'flag') _drawFlag(canvas, rect, paint, isDashed: true);
+    else {
+      if (type == 'rectangle') _drawDashedPath(canvas, Path()..addRect(rect), paint);
+      else if (type == 'circle') _drawDashedPath(canvas, Path()..addOval(rect), paint);
+      else if (type == 'triangle') {
+        final path = Path()
+          ..moveTo(rect.centerLeft.dx + (rect.width / 2), rect.top)
+          ..lineTo(rect.right, rect.bottom)
+          ..lineTo(rect.left, rect.bottom)
+          ..close();
+        _drawDashedPath(canvas, path, paint);
+      }
+    }
+  } else {
+    if (type == 'rectangle') canvas.drawRect(rect, paint);
+    else if (type == 'circle') canvas.drawOval(rect, paint);
+    else if (type == 'line') canvas.drawLine(rect.topLeft, rect.bottomRight, paint);
+    else if (type == 'triangle') _drawTriangle(canvas, rect, paint);
+    else if (type == 'arrow') _drawArrow(canvas, rect.topLeft, rect.bottomRight, paint);
+    else if (type == 'sin') _drawSineWave(canvas, rect, paint);
+    else if (type == 'cos') _drawCosineWave(canvas, rect, paint);
+    else if (type == 'star') _drawStar(canvas, rect, paint);
+    else if (type == 'diamond') _drawDiamond(canvas, rect, paint);
+    else if (type == 'pentagon') _drawPentagon(canvas, rect, paint);
+    else if (type == 'hexagon') _drawHexagon(canvas, rect, paint);
+    else if (type == 'cross') _drawCross(canvas, rect, paint);
+    else if (type == 'cloud') _drawCloud(canvas, rect, paint);
+    else if (type == 'heart') _drawHeart(canvas, rect, paint);
+    else if (type == 'cylinder') _drawCylinder(canvas, rect, paint);
+    else if (type == 'cube') _drawCube(canvas, rect, paint);
+    else if (type == 'parallelogram') _drawParallelogram(canvas, rect, paint);
+    else if (type == 'octagon') _drawOctagon(canvas, rect, paint);
+    else if (type == 'heptagon') _drawHeptagon(canvas, rect, paint);
+    else if (type == 'trapezoid') _drawTrapezoid(canvas, rect, paint);
+    else if (type == 'semi_circle') _drawSemiCircle(canvas, rect, paint);
+    else if (type == 'right_triangle') _drawRightTriangle(canvas, rect, paint);
+    else if (type == 'x_mark') _drawXMark(canvas, rect, paint);
+    else if (type == 'teardrop') _drawTeardrop(canvas, rect, paint);
+    else if (type == 'speech_bubble') _drawSpeechBubble(canvas, rect, paint);
+    else if (type == 'crescent') _drawCrescent(canvas, rect, paint);
+    else if (type == 'flag') _drawFlag(canvas, rect, paint);
+  }
+}
+
+void _fillUnifiedShape(Canvas canvas, Rect rect, String type, Paint fillPaint) {
+  if (type == 'rectangle') canvas.drawRect(rect, fillPaint);
+  else if (type == 'circle') canvas.drawOval(rect, fillPaint);
+  else if (type == 'triangle') _drawTriangle(canvas, rect, fillPaint);
+  else if (type == 'star') _drawStar(canvas, rect, fillPaint);
+  else if (type == 'diamond') _drawDiamond(canvas, rect, fillPaint);
+  else if (type == 'pentagon') _drawPentagon(canvas, rect, fillPaint);
+  else if (type == 'hexagon') _drawHexagon(canvas, rect, fillPaint);
+  else if (type == 'cross') _drawCross(canvas, rect, fillPaint);
+  else if (type == 'cloud') _drawCloud(canvas, rect, fillPaint);
+  else if (type == 'heart') _drawHeart(canvas, rect, fillPaint);
+  else if (type == 'cylinder') _drawCylinder(canvas, rect, fillPaint);
+  else if (type == 'cube') _drawCube(canvas, rect, fillPaint);
+  else if (type == 'parallelogram') _drawParallelogram(canvas, rect, fillPaint);
+  else if (type == 'octagon') _drawOctagon(canvas, rect, fillPaint);
+  else if (type == 'heptagon') _drawHeptagon(canvas, rect, fillPaint);
+  else if (type == 'trapezoid') _drawTrapezoid(canvas, rect, fillPaint);
+  else if (type == 'semi_circle') _drawSemiCircle(canvas, rect, fillPaint);
+  else if (type == 'right_triangle') _drawRightTriangle(canvas, rect, fillPaint);
+  else if (type == 'x_mark') _drawXMark(canvas, rect, fillPaint);
+  else if (type == 'teardrop') _drawTeardrop(canvas, rect, fillPaint);
+  else if (type == 'speech_bubble') _drawSpeechBubble(canvas, rect, fillPaint);
+  else if (type == 'crescent') _drawCrescent(canvas, rect, fillPaint);
+  else if (type == 'flag') _drawFlag(canvas, rect, fillPaint);
+}
+
 void _drawDashedLine(Canvas canvas, Offset p1, Offset p2, Paint paint) {
   const double dashWidth = 10.0;
   const double dashSpace = 5.0;
@@ -139,58 +583,64 @@ class LaserPainter extends CustomPainter {
     for (var stroke in strokes) {
       if (stroke.points.isEmpty) continue;
 
-      // Draw the comet tail by connecting adjacent temporal points
-      for (int i = 0; i < stroke.points.length - 1; i++) {
-        final p1 = stroke.points[i];
-        final p2 = stroke.points[i + 1];
-
-        // Opacity drops as the point ages
-        final age = now.difference(p1.timestamp).inMilliseconds;
-        double opacity = 1.0 - (age / (fadeDuration * 1000)).clamp(0.0, 1.0);
-
-        if (opacity <= 0) continue;
-        
-        double widthFactor = opacity; // Shrinks as it fades
-
-        final Paint glowPaint = Paint()
-          ..color = stroke.color.withOpacity(opacity * 0.6)
-          ..strokeWidth = 12.0 * widthFactor
-          ..style = PaintingStyle.stroke
-          ..strokeCap = StrokeCap.round
-          ..strokeJoin = StrokeJoin.round
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8.0);
-
-        final Paint midPaint = Paint()
-          ..color = stroke.color.withOpacity(opacity * 0.8)
-          ..strokeWidth = 6.0 * widthFactor
-          ..style = PaintingStyle.stroke
-          ..strokeCap = StrokeCap.round
-          ..strokeJoin = StrokeJoin.round
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.0);
-
-        final Paint corePaint = Paint()
-          ..color = Colors.white.withOpacity(opacity)
-          ..strokeWidth = 2.0 * widthFactor
-          ..style = PaintingStyle.stroke
-          ..strokeCap = StrokeCap.round
-          ..strokeJoin = StrokeJoin.round;
-
-        canvas.drawLine(p1.offset, p2.offset, glowPaint);
-        canvas.drawLine(p1.offset, p2.offset, midPaint);
-        canvas.drawLine(p1.offset, p2.offset, corePaint);
+      // Extract surviving points into a single continuous path
+      // This eliminates overlapping opacity artifacts (dots/dashes) at joints.
+      final path = Path();
+      path.moveTo(stroke.points.first.offset.dx, stroke.points.first.offset.dy);
+      for (int i = 1; i < stroke.points.length; i++) {
+        path.lineTo(stroke.points[i].offset.dx, stroke.points[i].offset.dy);
       }
 
-      // Highlight the tip (current head of the comet)
+      // The tip is the last point. We use its age to gracefully fade out the 
+      // entire remaining stroke when the user stops drawing.
       final lastPoint = stroke.points.last;
       final tipAge = now.difference(lastPoint.timestamp).inMilliseconds;
-      double tipOpacity = 1.0 - (tipAge / (fadeDuration * 1000)).clamp(0.0, 1.0);
-      
-      if (tipOpacity > 0) {
-        final tipGlow = Paint()
-          ..color = stroke.color.withOpacity(tipOpacity)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12.0);
+      double masterOpacity = 1.0 - (tipAge / (fadeDuration * 1000)).clamp(0.0, 1.0);
+
+      // Add a slight curve to the fade out so it stays solid a bit longer then fades
+      masterOpacity = math.pow(masterOpacity, 0.7).toDouble();
+
+      if (masterOpacity <= 0) continue;
+
+      final Paint glowPaint = Paint()
+        ..color = stroke.color.withOpacity(masterOpacity * 0.6)
+        ..strokeWidth = 14.0
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8.0);
+
+      final Paint midPaint = Paint()
+        ..color = stroke.color.withOpacity(masterOpacity * 0.8)
+        ..strokeWidth = 6.0
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.0);
+
+      final Paint corePaint = Paint()
+        ..color = Colors.white.withOpacity(masterOpacity)
+        ..strokeWidth = 2.5
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
+
+      if (stroke.points.length == 1) {
+        // Draw a dot if there is only one point
+        canvas.drawCircle(stroke.points.first.offset, 7.0, glowPaint..style = PaintingStyle.fill..strokeWidth = 0);
+        canvas.drawCircle(stroke.points.first.offset, 3.0, midPaint..style = PaintingStyle.fill..strokeWidth = 0);
+        canvas.drawCircle(stroke.points.first.offset, 1.25, corePaint..style = PaintingStyle.fill..strokeWidth = 0);
+      } else {
+        // Draw continuous solid path
+        canvas.drawPath(path, glowPaint);
+        canvas.drawPath(path, midPaint);
+        canvas.drawPath(path, corePaint);
         
-        final tipCore = Paint()..color = Colors.white.withOpacity(tipOpacity);
+        // Highlight the tip to make it punchy
+        final tipGlow = Paint()
+          ..color = stroke.color.withOpacity(masterOpacity)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12.0);
+        final tipCore = Paint()..color = Colors.white.withOpacity(masterOpacity);
         
         canvas.drawCircle(lastPoint.offset, 8, tipGlow);
         canvas.drawCircle(lastPoint.offset, 3, tipCore);
@@ -221,11 +671,11 @@ class ShapePreviewPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final rect = Rect.fromLTWH(
-      size.width * 0.1,
-      size.height * 0.1,
-      size.width * 0.8,
-      size.height * 0.8,
+    final double side = math.min(size.width, size.height) * 0.8;
+    final rect = Rect.fromCenter(
+      center: Offset(size.width / 2, size.height / 2),
+      width: (type == 'line' || type == 'arrow' || type == 'sin' || type == 'cos') ? size.width * 0.8 : side,
+      height: side,
     );
     final paint = Paint()
       ..color = getSmartColor(borderColor, isDarkMode)
@@ -236,61 +686,9 @@ class ShapePreviewPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     if (fillColor != Colors.transparent) {
-      if (type == 'rectangle') {
-        canvas.drawRect(rect, fillPaint);
-      } else if (type == 'circle') {
-        canvas.drawOval(rect, fillPaint);
-      } else if (type == 'triangle') {
-        _drawTriangle(canvas, rect, fillPaint);
-      }
+      _fillUnifiedShape(canvas, rect, type, fillPaint);
     }
-
-    if (lineType == 1) {
-      if (type == 'line') {
-        _drawDashedLine(canvas, rect.topLeft, rect.bottomRight, paint);
-      } else if (type == 'arrow') {
-        _drawArrow(
-          canvas,
-          rect.topLeft,
-          rect.bottomRight,
-          paint,
-          isDashed: true,
-        );
-      } else if (type == 'sin') {
-        _drawSineWave(canvas, rect, paint, isDashed: true);
-      } else if (type == 'cos') {
-        _drawCosineWave(canvas, rect, paint, isDashed: true);
-      } else {
-        if (type == 'rectangle') {
-          _drawDashedPath(canvas, Path()..addRect(rect), paint);
-        } else if (type == 'circle') {
-          _drawDashedPath(canvas, Path()..addOval(rect), paint);
-        } else if (type == 'triangle') {
-          final path = Path()
-            ..moveTo(rect.centerLeft.dx + (rect.width / 2), rect.top)
-            ..lineTo(rect.right, rect.bottom)
-            ..lineTo(rect.left, rect.bottom)
-            ..close();
-          _drawDashedPath(canvas, path, paint);
-        }
-      }
-    } else {
-      if (type == 'rectangle') {
-        canvas.drawRect(rect, paint);
-      } else if (type == 'circle') {
-        canvas.drawOval(rect, paint);
-      } else if (type == 'line') {
-        canvas.drawLine(rect.topLeft, rect.bottomRight, paint);
-      } else if (type == 'triangle') {
-        _drawTriangle(canvas, rect, paint);
-      } else if (type == 'arrow') {
-        _drawArrow(canvas, rect.topLeft, rect.bottomRight, paint);
-      } else if (type == 'sin') {
-        _drawSineWave(canvas, rect, paint);
-      } else if (type == 'cos') {
-        _drawCosineWave(canvas, rect, paint);
-      }
-    }
+    _drawUnifiedShape(canvas, rect, type, paint, isDashed: lineType == 1);
   }
 
   @override
@@ -477,67 +875,13 @@ class ShapePainter extends CustomPainter {
         ..style = PaintingStyle.fill;
 
       if (shp.fillColor != Colors.transparent) {
-        if (shp.type == 'rectangle') {
-          canvas.drawRect(shp.rect, fillPaint);
-        } else if (shp.type == 'circle') {
-          canvas.drawOval(shp.rect, fillPaint);
-        } else if (shp.type == 'triangle') {
-          _drawTriangle(canvas, shp.rect, fillPaint);
-        }
+        _fillUnifiedShape(canvas, shp.rect, shp.type, fillPaint);
       }
-
-      if (shp.lineType == 1) {
-        _drawDashedShape(canvas, shp, paint);
-      } else {
-        if (shp.type == 'rectangle') {
-          canvas.drawRect(shp.rect, paint);
-        } else if (shp.type == 'circle') {
-          canvas.drawOval(shp.rect, paint);
-        } else if (shp.type == 'line') {
-          canvas.drawLine(shp.rect.topLeft, shp.rect.bottomRight, paint);
-        } else if (shp.type == 'triangle') {
-          _drawTriangle(canvas, shp.rect, paint);
-        } else if (shp.type == 'arrow') {
-          _drawArrow(canvas, shp.rect.topLeft, shp.rect.bottomRight, paint);
-        } else if (shp.type == 'sin') {
-          _drawSineWave(canvas, shp.rect, paint);
-        } else if (shp.type == 'cos') {
-          _drawCosineWave(canvas, shp.rect, paint);
-        }
-      }
+      _drawUnifiedShape(canvas, shp.rect, shp.type, paint, isDashed: shp.lineType == 1);
     }
   }
 
-  void _drawDashedShape(Canvas canvas, PageShape shp, Paint paint) {
-    if (shp.type == 'line') {
-      _drawDashedLine(canvas, shp.rect.topLeft, shp.rect.bottomRight, paint);
-    } else if (shp.type == 'arrow') {
-      _drawArrow(
-        canvas,
-        shp.rect.topLeft,
-        shp.rect.bottomRight,
-        paint,
-        isDashed: true,
-      );
-    } else if (shp.type == 'sin') {
-      _drawSineWave(canvas, shp.rect, paint, isDashed: true);
-    } else if (shp.type == 'cos') {
-      _drawCosineWave(canvas, shp.rect, paint, isDashed: true);
-    } else {
-      if (shp.type == 'rectangle') {
-        _drawDashedPath(canvas, Path()..addRect(shp.rect), paint);
-      } else if (shp.type == 'circle') {
-        _drawDashedPath(canvas, Path()..addOval(shp.rect), paint);
-      } else if (shp.type == 'triangle') {
-        final path = Path()
-          ..moveTo(shp.rect.centerLeft.dx + (shp.rect.width / 2), shp.rect.top)
-          ..lineTo(shp.rect.right, shp.rect.bottom)
-          ..lineTo(shp.rect.left, shp.rect.bottom)
-          ..close();
-        _drawDashedPath(canvas, path, paint);
-      }
-    }
-  }
+
 
   @override
   bool shouldRepaint(covariant ShapePainter old) => old.version != version || old.isDarkMode != isDarkMode || old.template != template || old.currentShape != currentShape;
@@ -919,8 +1263,11 @@ class CanvasBackgroundPainter extends CustomPainter {
     final double drawW = size.width > maxDim ? maxDim : size.width;
     final double drawH = size.height > maxDim ? maxDim : size.height;
 
-    // Render the base sheet color universally filling the entire canvas
-    final bgPaint = Paint()..color = isDarkMode ? Colors.black : template.paperColor;
+    Color bgColor = template.paperColor;
+    if (isDarkMode && bgColor.value == Colors.white.value) {
+      bgColor = const Color(0xFF1C1C1E);
+    }
+    final bgPaint = Paint()..color = bgColor;
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
 
     if (template.type == CanvasBackgroundType.blank || template.type == CanvasBackgroundType.custom) return;

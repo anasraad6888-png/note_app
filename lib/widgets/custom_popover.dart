@@ -9,10 +9,12 @@ Future<void> showCustomPopover({
   double? height,
   Color? backgroundColor,
   Alignment? alignment,
+  bool removeBackgroundDecoration = false,
+  String tag = 'custom_popover',
 }) async {
   // إغلاق النافذة السابقة بسلاسة لتجنب التداخل البصري
-  if (SmartDialog.checkExist(tag: 'custom_popover')) {
-    SmartDialog.dismiss(tag: 'custom_popover');
+  if (SmartDialog.checkExist(tag: tag)) {
+    SmartDialog.dismiss(tag: tag);
     await Future.delayed(const Duration(milliseconds: 150));
   }
   
@@ -21,11 +23,33 @@ Future<void> showCustomPopover({
   // التحقق من حالة الثيم لضبط الظل والحدود
   final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
+  Alignment finalAlignment = alignment ?? Alignment.bottomCenter;
+  if (alignment == null && context.mounted) {
+    try {
+      final RenderBox box = context.findRenderObject() as RenderBox;
+      final Offset globalPos = box.localToGlobal(Offset.zero);
+      final double screenW = MediaQueryData.fromView(View.of(context)).size.width;
+      final double center = globalPos.dx + (box.size.width / 2);
+      
+      if (center > screenW * 0.65) {
+        finalAlignment = isTopHalf ? Alignment.bottomRight : Alignment.topRight;
+      } else if (center < screenW * 0.35) {
+        finalAlignment = isTopHalf ? Alignment.bottomLeft : Alignment.topLeft;
+      } else {
+        finalAlignment = isTopHalf ? Alignment.bottomCenter : Alignment.topCenter;
+      }
+    } catch (_) {
+      finalAlignment = isTopHalf ? Alignment.bottomCenter : Alignment.topCenter;
+    }
+  } else if (alignment != null) {
+    finalAlignment = alignment;
+  }
+
   await SmartDialog.showAttach(
-    tag: 'custom_popover',
+    tag: tag,
     targetContext: context,
-    // التوجيه الذكي
-    alignment: alignment ?? (isTopHalf ? Alignment.bottomCenter : Alignment.topCenter),
+    // التوجيه الذكي المتقدم
+    alignment: finalAlignment,
     usePenetrate: false, 
     keepSingle: true,
     maskColor: Colors.transparent, // [تحسين]: منع تعتيم لوحة الرسم خلف النافذة
@@ -33,10 +57,14 @@ Future<void> showCustomPopover({
     
     // [تحسين]: إضافة حركة انزلاق وتلاشي مخصصة وفخمة
     animationBuilder: (controller, child, animationParam) {
+      Offset slideOffset = Offset(0, isTopHalf ? -0.05 : 0.05);
+      if (finalAlignment == Alignment.centerLeft) slideOffset = const Offset(0.05, 0);
+      else if (finalAlignment == Alignment.centerRight) slideOffset = const Offset(-0.05, 0);
+
       return SlideTransition(
         position: Tween<Offset>(
           // الانزلاق يأتي من اتجاه الزر
-          begin: Offset(0, isTopHalf ? -0.05 : 0.05),
+          begin: slideOffset,
           end: Offset.zero,
         ).animate(CurvedAnimation(
           parent: controller,
@@ -51,10 +79,10 @@ Future<void> showCustomPopover({
     
     builder: (dialogContext) {
       return Container(
-        width: width ?? 320,
+        width: width,
         height: height,
         margin: const EdgeInsets.all(12.0), // مسافة أمان أكبر من حافة الشاشة
-        decoration: BoxDecoration(
+        decoration: removeBackgroundDecoration ? null : BoxDecoration(
           color: backgroundColor ?? Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(20), // زوايا دائرية أكثر عصرية
           
@@ -72,7 +100,7 @@ Future<void> showCustomPopover({
             )
           ],
         ),
-        clipBehavior: Clip.antiAlias,
+        clipBehavior: removeBackgroundDecoration ? Clip.none : Clip.antiAlias,
         child: Material(
           type: MaterialType.transparency,
           child: bodyBuilder(dialogContext),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:google_fonts/google_fonts.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 import '../../controllers/canvas_controller.dart';
 import 'drawing_tools_row.dart';
 
@@ -26,322 +25,326 @@ class _TextToolbarDockState extends State<TextToolbarDock> {
     // The outer MainScreen Scaffold already avoids the keyboard (resizeToAvoidBottomInset: true),
     // so the inner DrawingCanvas body's bottom edge is already at the keyboard top.
     // We just need a small gap (8px) from the body bottom.
+    final isDark = widget.canvasCtrl.isDarkMode;
+
     return Positioned(
-      bottom: 8, // The outer Scaffold's resize already puts us just above the keyboard
-      left: 8,
-      right: 8,
+      bottom: 10,
+      left: 0,
+      right: 0,
       child: TapRegion(
-        groupId:
-            'text_box_${widget.canvasCtrl.activeEditingText!.id}', // Link dynamically
+        groupId: 'text_box_${widget.canvasCtrl.activeEditingText!.id}',
         child: TextFieldTapRegion(
-          child: Material(
-            color: Colors.transparent,
-            child: Container(
-              decoration: BoxDecoration(
-                color: widget.canvasCtrl.isDarkMode
-                    ? const Color(0xD926262A)
-                    : const Color(0xE6F5F5F7),
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: widget.canvasCtrl.isDarkMode
-                        ? Colors.black.withValues(alpha: 0.6)
-                        : Colors.black.withValues(alpha: 0.2),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-                border: Border.all(
-                  color: widget.canvasCtrl.isDarkMode
-                      ? Colors.white10
-                      : Colors.black12,
-                  width: 1,
-                ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width - 32,
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // 1. Formatting Toolbar (QuillSimpleToolbar)
-                  Container(
-                    decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(
-                          color: widget.canvasCtrl.isDarkMode
-                              ? Colors.white10
-                              : Colors.black12,
-                          width: 1,
-                        ),
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? const Color(0xF026262A)
+                        : const Color(0xF2FFFFFF),
+                    borderRadius: BorderRadius.circular(30),
+                    boxShadow: [
+                      BoxShadow(
+                        color: isDark
+                            ? Colors.black.withAlpha(120)
+                            : Colors.black.withAlpha(40),
+                        blurRadius: 24,
+                        offset: const Offset(0, 8),
                       ),
+                    ],
+                    border: Border.all(
+                      color: isDark ? Colors.white12 : Colors.black12,
+                      width: 1,
                     ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 4,
-                      vertical: 4,
-                    ),
-                    child: Theme(
-                      data: Theme.of(context).copyWith(
-                        canvasColor: Colors.transparent,
-                        colorScheme: Theme.of(context).colorScheme.copyWith(
-                          primary: const Color(0xFFFF7F6A),
-                          primaryContainer: const Color(
-                            0xFFFF7F6A,
-                          ).withValues(alpha: 0.2),
-                          onPrimaryContainer: const Color(0xFFFF7F6A),
-                          secondaryContainer: const Color(
-                            0xFFFF7F6A,
-                          ).withValues(alpha: 0.2),
-                          onSecondaryContainer: const Color(0xFFFF7F6A),
-                        ),
-                        scrollbarTheme: const ScrollbarThemeData(
-                          thickness: WidgetStatePropertyAll(0),
-                        ),
-                        tooltipTheme: const TooltipThemeData(
-                          waitDuration: Duration(days: 365),
-                          showDuration: Duration.zero,
-                        ),
-                      ),
-                      child: ExcludeFocus(
-                        child: quill.QuillSimpleToolbar(
-                          controller: widget.canvasCtrl.activeQuillController!,
-                          config: quill.QuillSimpleToolbarConfig(
-                            iconTheme: quill.QuillIconTheme(
-                              iconButtonSelectedData: quill.IconButtonData(
-                                color: const Color(0xFFFF7F6A),
-                                style: ButtonStyle(
-                                  backgroundColor: WidgetStatePropertyAll(
-                                    const Color(
-                                      0xFFFF7F6A,
-                                    ).withValues(alpha: 0.2),
-                                  ),
-                                  shape: WidgetStatePropertyAll(
-                                    RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 3,
+                  ),
+                  child: ScrollConfiguration(
+                    behavior: ScrollConfiguration.of(context)
+                        .copyWith(scrollbars: false),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      child: IntrinsicHeight(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            // ── Font family & size ─────────────────────
+                            _buildFontFamilyButton(isDark),
+                            _buildFontSizeButton(isDark),
+                            _buildDivider(isDark),
+                            // ── Style toggles ──────────────────────────
+                            _buildQuillButton(
+                              icon: Icons.format_bold,
+                              attr: quill.Attribute.bold,
+                              tooltip: 'عريض',
+                              isDark: isDark,
+                            ),
+                            _buildQuillButton(
+                              icon: Icons.format_italic,
+                              attr: quill.Attribute.italic,
+                              tooltip: 'مائل',
+                              isDark: isDark,
+                            ),
+                            _buildQuillButton(
+                              icon: Icons.format_underline,
+                              attr: quill.Attribute.underline,
+                              tooltip: 'تحته خط',
+                              isDark: isDark,
+                            ),
+                            _buildQuillButton(
+                              icon: Icons.format_strikethrough,
+                              attr: quill.Attribute.strikeThrough,
+                              tooltip: 'يتوسطه خط',
+                              isDark: isDark,
+                            ),
+                            _buildDivider(isDark),
+                            // ── Colors ─────────────────────────────────
+                            _buildColorButton(isBackground: false, isDark: isDark),
+                            _buildColorButton(isBackground: true, isDark: isDark),
+                            _buildDivider(isDark),
+                            // ── Inspector & Done ───────────────────────
+                            _buildIconBtn(
+                              child: Text(
+                                'Aa',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  color: isDark ? Colors.white70 : Colors.black87,
                                 ),
                               ),
-                              iconButtonUnselectedData: quill.IconButtonData(
-                                color: widget.canvasCtrl.isDarkMode
-                                    ? Colors.white
-                                    : Colors.black87,
-                                style: ButtonStyle(
-                                  backgroundColor: const WidgetStatePropertyAll(
-                                    Colors.transparent,
-                                  ),
-                                  shape: WidgetStatePropertyAll(
-                                    RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
+                              tooltip: 'المفتش',
+                              onTap: () =>
+                                  widget.canvasCtrl.toggleTextInspector?.call(),
+                            ),
+                            const SizedBox(width: 4),
+                            // Done (coral circle)
+                            GestureDetector(
+                              onTap: () =>
+                                  widget.canvasCtrl.stopEditingText(),
+                              child: Container(
+                                width: 28,
+                                height: 28,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFFF7F6A),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.check_rounded,
+                                  color: Colors.white,
+                                  size: 16,
                                 ),
                               ),
                             ),
-                            color: Colors.transparent,
-                            multiRowsDisplay: false,
-                            showFontFamily: true,
-                            showFontSize: true,
-                            buttonOptions: quill.QuillSimpleToolbarButtonOptions(
-                              color: quill.QuillToolbarColorButtonOptions(
-                                customOnPressedCallback:
-                                    _handleColorPickerRequest,
-                              ),
-                              backgroundColor:
-                                  quill.QuillToolbarColorButtonOptions(
-                                    customOnPressedCallback:
-                                        _handleColorPickerRequest,
-                                  ),
-                              fontFamily: quill.QuillToolbarFontFamilyButtonOptions(
-                                initialValue: GoogleFonts.cairo().fontFamily!,
-                                defaultDisplayText: 'Cairo',
-                                items: {
-                                  'Cairo': GoogleFonts.cairo().fontFamily!,
-                                  'Amiri': GoogleFonts.amiri().fontFamily!,
-                                  'Tajawal': GoogleFonts.tajawal().fontFamily!,
-                                  'Changa': GoogleFonts.changa().fontFamily!,
-                                  'Aref Ruqaa':
-                                      GoogleFonts.arefRuqaa().fontFamily!,
-                                  'Pacifico':
-                                      GoogleFonts.pacifico().fontFamily!,
-                                  'Roboto Mono':
-                                      GoogleFonts.robotoMono().fontFamily!,
-                                  'Rubik': GoogleFonts.rubik().fontFamily!,
-                                },
-                                childBuilder: (dynamic options, dynamic extra) {
-                                  return _UpwardMenuAnchor<
-                                    MapEntry<String, String>
-                                  >(
-                                    offset: const Offset(0, -250),
-                                    groupId:
-                                        'text_box_${widget.canvasCtrl.activeEditingText!.id}',
-                                    displayValue: extra.currentValue == 'Clear'
-                                        ? 'الخط'
-                                        : extra.currentValue,
-                                    items:
-                                        (options.items
-                                                    as Map<String, String>? ??
-                                                {})
-                                            .entries
-                                            .toList(),
-                                    itemLabel: (e) => e.key,
-                                    itemStyle: (e) =>
-                                        TextStyle(fontFamily: e.value),
-                                    onSelected: (e) {
-                                      extra.controller.formatSelection(
-                                        quill.Attribute.fromKeyValue(
-                                          'font',
-                                          e.value == 'Clear' ? null : e.value,
-                                        ),
-                                      );
-                                      options.onSelected?.call(e.value);
-                                    },
-                                  );
-                                },
-                              ),
-                              fontSize: quill.QuillToolbarFontSizeButtonOptions(
-                                initialValue: '16',
-                                defaultDisplayText: '16',
-                                items: const {
-                                  '12': '12',
-                                  '14': '14',
-                                  '16': '16',
-                                  '18': '18',
-                                  '20': '20',
-                                  '24': '24',
-                                  '28': '28',
-                                  '32': '32',
-                                  '36': '36',
-                                  '48': '48',
-                                  '64': '64',
-                                },
-                                childBuilder: (dynamic options, dynamic extra) {
-                                  return _UpwardMenuAnchor<
-                                    MapEntry<String, String>
-                                  >(
-                                    offset: const Offset(0, -250),
-                                    groupId:
-                                        'text_box_${widget.canvasCtrl.activeEditingText!.id}',
-                                    displayValue: extra.currentValue == 'Clear'
-                                        ? '16'
-                                        : extra.currentValue,
-                                    items:
-                                        (options.items
-                                                    as Map<String, String>? ??
-                                                {})
-                                            .entries
-                                            .toList(),
-                                    itemLabel: (e) => e.key,
-                                    onSelected: (e) {
-                                      extra.controller.formatSelection(
-                                        quill.Attribute.fromKeyValue(
-                                          'size',
-                                          e.value == 'Clear' ? null : e.value,
-                                        ),
-                                      );
-                                      options.onSelected?.call(e.value);
-                                    },
-                                  );
-                                },
-                              ),
-                              selectHeaderStyleDropdownButton:
-                                  quill.QuillToolbarSelectHeaderStyleDropdownButtonOptions(
-                                    childBuilder: (dynamic options, dynamic extra) {
-                                      final Map<
-                                        quill.Attribute<dynamic>,
-                                        String
-                                      >
-                                      headerItems = {
-                                        quill.Attribute.h1: 'Header 1',
-                                        quill.Attribute.h2: 'Header 2',
-                                        quill.Attribute.h3: 'Header 3',
-                                        quill.Attribute.header: 'Normal',
-                                      };
-                                      return _UpwardMenuAnchor<
-                                        MapEntry<
-                                          quill.Attribute<dynamic>,
-                                          String
-                                        >
-                                      >(
-                                        offset: const Offset(0, -180),
-                                        groupId:
-                                            'text_box_${widget.canvasCtrl.activeEditingText!.id}',
-                                        displayValue: 'العنوان',
-                                        items: headerItems.entries.toList(),
-                                        itemLabel: (e) => e.value,
-                                        onSelected: (e) {
-                                          extra.controller.formatSelection(
-                                            e.key,
-                                          );
-                                        },
-                                      );
-                                    },
-                                  ),
-                            ),
-                            showHeaderStyle: false,
-                            showBoldButton: true,
-                            showItalicButton: true,
-                            showUnderLineButton: true,
-                            showStrikeThrough: true,
-                            showColorButton: true,
-                            showBackgroundColorButton: true,
-                            customButtons: [
-                              quill.QuillToolbarCustomButtonOptions(
-                                icon: const Text(
-                                  'Aa',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                tooltip: 'المفتش',
-                                onPressed: () {
-                                  widget.canvasCtrl.toggleTextInspector?.call();
-                                },
-                              ),
-                              quill.QuillToolbarCustomButtonOptions(
-                                icon: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: const BoxDecoration(
-                                    color: Color(0xFFFF7F6A),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    LucideIcons.check,
-                                    color: Colors.white,
-                                    size: 16,
-                                  ),
-                                ),
-                                tooltip: 'تأكيد',
-                                onPressed: () {
-                                  widget.canvasCtrl.stopEditingText();
-                                },
-                              ),
-                            ],
-                            showAlignmentButtons: false,
-                            showLeftAlignment: false,
-                            showCenterAlignment: false,
-                            showRightAlignment: false,
-                            showJustifyAlignment: false,
-                            showListNumbers: false,
-                            showListBullets: false,
-                            showLink: false,
-                            showClearFormat: false,
-                            showCodeBlock: false,
-                            showQuote: false,
-                            showIndent: false,
-                            showUndo: false,
-                            showRedo: false,
-                            showSearchButton: false,
-                          ),
+                            const SizedBox(width: 2),
+                          ],
                         ),
                       ),
                     ),
                   ),
-                ],
+                ),
               ),
             ),
           ),
         ),
       ),
     );
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────────────────
+
+  Widget _buildDivider(bool isDark) {
+    return Container(
+      width: 1,
+      height: 22,
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      color: isDark ? Colors.white.withAlpha(45) : Colors.black12,
+    );
+  }
+
+  Widget _buildIconBtn({
+    required Widget child,
+    required String tooltip,
+    required VoidCallback onTap,
+    bool isActive = false,
+    Color activeColor = const Color(0xFFFF7F6A),
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          width: 30,
+          height: 30,
+          margin: const EdgeInsets.symmetric(horizontal: 1),
+          decoration: BoxDecoration(
+            color: isActive
+                ? activeColor.withAlpha(40)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: isActive
+                ? Border.all(color: activeColor.withAlpha(80), width: 1)
+                : null,
+          ),
+          alignment: Alignment.center,
+          child: child,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuillButton({
+    required IconData icon,
+    required quill.Attribute attr,
+    required String tooltip,
+    required bool isDark,
+  }) {
+    final controller = widget.canvasCtrl.activeQuillController!;
+    final isActive = controller
+        .getSelectionStyle()
+        .containsKey(attr.key);
+
+    return _buildIconBtn(
+      child: Icon(
+        icon,
+        size: 16,
+        color: isActive
+            ? const Color(0xFFFF7F6A)
+            : (isDark ? Colors.white70 : Colors.black87),
+      ),
+      tooltip: tooltip,
+      isActive: isActive,
+      onTap: () {
+        if (isActive) {
+          controller.formatSelection(quill.Attribute.clone(attr, null));
+        } else {
+          controller.formatSelection(attr);
+        }
+      },
+    );
+  }
+
+  Widget _buildColorButton({
+    required bool isBackground,
+    required bool isDark,
+  }) {
+    final controller = widget.canvasCtrl.activeQuillController!;
+    final attr = controller
+        .getSelectionStyle()
+        .attributes[isBackground ? 'background' : 'color'];
+    final currentColor = _parseQuillColor(
+      attr?.value?.toString(),
+      isDark,
+      isBackground,
+    );
+
+    return Builder(
+      builder: (ctx) => _buildIconBtn(
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Icon(
+              isBackground
+                  ? Icons.format_color_fill
+                  : Icons.format_color_text,
+              size: 16,
+              color: isDark ? Colors.white70 : Colors.black87,
+            ),
+            Positioned(
+              bottom: 2,
+              child: Container(
+                width: 14,
+                height: 3,
+                decoration: BoxDecoration(
+                  color: currentColor == Colors.transparent
+                      ? (isDark ? Colors.white38 : Colors.black26)
+                      : currentColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+          ],
+        ),
+        tooltip: isBackground ? 'لون الخلفية' : 'لون النص',
+        onTap: () => _handleColorPickerRequest(controller, isBackground),
+      ),
+    );
+  }
+
+  Widget _buildFontFamilyButton(bool isDark) {
+    return _UpwardMenuAnchor<MapEntry<String, String>>(
+      offset: const Offset(0, -250),
+      groupId: 'text_box_${widget.canvasCtrl.activeEditingText!.id}',
+      displayValue: _currentFontLabel(),
+      items: {
+        'Cairo': GoogleFonts.cairo().fontFamily!,
+        'Amiri': GoogleFonts.amiri().fontFamily!,
+        'Tajawal': GoogleFonts.tajawal().fontFamily!,
+        'Changa': GoogleFonts.changa().fontFamily!,
+        'Aref Ruqaa': GoogleFonts.arefRuqaa().fontFamily!,
+        'Pacifico': GoogleFonts.pacifico().fontFamily!,
+        'Roboto Mono': GoogleFonts.robotoMono().fontFamily!,
+        'Rubik': GoogleFonts.rubik().fontFamily!,
+      }.entries.toList(),
+      itemLabel: (e) => e.key,
+      itemStyle: (e) => TextStyle(fontFamily: e.value),
+      onSelected: (e) {
+        widget.canvasCtrl.activeQuillController!.formatSelection(
+          quill.Attribute.fromKeyValue('font', e.value),
+        );
+      },
+      isDark: isDark,
+    );
+  }
+
+  Widget _buildFontSizeButton(bool isDark) {
+    return _UpwardMenuAnchor<MapEntry<String, String>>(
+      offset: const Offset(0, -250),
+      groupId: 'text_box_${widget.canvasCtrl.activeEditingText!.id}',
+      displayValue: _currentFontSize(),
+      items: ['12', '14', '16', '18', '20', '24', '28', '32', '36', '48', '64']
+          .map((s) => MapEntry(s, s))
+          .toList(),
+      itemLabel: (e) => e.key,
+      onSelected: (e) {
+        widget.canvasCtrl.activeQuillController!.formatSelection(
+          quill.Attribute.fromKeyValue('size', e.value),
+        );
+      },
+      isDark: isDark,
+    );
+  }
+
+  String _currentFontLabel() {
+    final controller = widget.canvasCtrl.activeQuillController!;
+    final attr = controller.getSelectionStyle().attributes['font'];
+    if (attr == null || attr.value == null) return 'Cairo';
+    final fontMap = {
+      GoogleFonts.cairo().fontFamily!: 'Cairo',
+      GoogleFonts.amiri().fontFamily!: 'Amiri',
+      GoogleFonts.tajawal().fontFamily!: 'Tajawal',
+      GoogleFonts.changa().fontFamily!: 'Changa',
+      GoogleFonts.arefRuqaa().fontFamily!: 'Ruqaa',
+      GoogleFonts.pacifico().fontFamily!: 'Pacifico',
+      GoogleFonts.robotoMono().fontFamily!: 'Mono',
+      GoogleFonts.rubik().fontFamily!: 'Rubik',
+    };
+    return fontMap[attr.value.toString()] ?? 'Cairo';
+  }
+
+  String _currentFontSize() {
+    final controller = widget.canvasCtrl.activeQuillController!;
+    final attr = controller.getSelectionStyle().attributes['size'];
+    if (attr == null || attr.value == null) return '16';
+    return attr.value.toString();
   }
 
   Color _parseQuillColor(
@@ -382,7 +385,7 @@ class _TextToolbarDockState extends State<TextToolbarDock> {
       isBackground,
     );
 
-    await DrawingToolsRow.showPopoverColorPicker(
+    await showPopoverColorPicker(
       context: context,
       currentColor: currentColor,
       onColorChanged: (Color color) {
@@ -426,6 +429,7 @@ class _UpwardMenuAnchor<T> extends StatelessWidget {
   final String Function(T) itemLabel;
   final TextStyle Function(T)? itemStyle;
   final void Function(T) onSelected;
+  final bool isDark;
 
   const _UpwardMenuAnchor({
     required this.offset,
@@ -435,6 +439,7 @@ class _UpwardMenuAnchor<T> extends StatelessWidget {
     required this.itemLabel,
     this.itemStyle,
     required this.onSelected,
+    this.isDark = false,
   });
 
   @override
@@ -456,15 +461,23 @@ class _UpwardMenuAnchor<T> extends StatelessWidget {
             }
           },
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(displayValue, maxLines: 1),
-                const Icon(
+                Text(
+                  displayValue,
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark ? Colors.white70 : Colors.black87,
+                  ),
+                ),
+                Icon(
                   Icons.arrow_drop_down,
-                  size: 18,
-                ), // Use standard downward icon since it's a menu
+                  size: 16,
+                  color: isDark ? Colors.white54 : Colors.black45,
+                ),
               ],
             ),
           ),

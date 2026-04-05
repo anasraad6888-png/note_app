@@ -50,6 +50,7 @@ dependencies:
   flutter_colorpicker: ^1.1.0
   record: ^6.2.0
   audioplayers: ^6.6.0
+  audio_waveforms: ^1.1.0
   perfect_freehand: ^2.5.2+1
   flutter_animate: ^4.5.2
   reorderable_grid_view: ^2.2.8

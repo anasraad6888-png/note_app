@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_quill/flutter_quill.dart' show FlutterQuillLocalizations;
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'dart:ui';
 
 import 'models/note_document.dart';
 import 'screens/main_screen.dart';
@@ -27,6 +28,16 @@ class NoteApp extends StatefulWidget {
   State<NoteApp> createState() => _NoteAppState();
 }
 
+class MyCustomScrollBehavior extends MaterialScrollBehavior {
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.trackpad,
+        PointerDeviceKind.stylus,
+      };
+}
+
 class _NoteAppState extends State<NoteApp> {
   bool isDarkMode = false;
   final _settingsBox = Hive.box('settingsBox');
@@ -48,6 +59,7 @@ class _NoteAppState extends State<NoteApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      scrollBehavior: MyCustomScrollBehavior(),
       title: 'Note App',
       builder: FlutterSmartDialog.init(
         builder: (context, child) {

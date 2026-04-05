@@ -1,7 +1,14 @@
 part of '../canvas_controller.dart';
 
 extension CanvasToolsLogic on CanvasController {
-  void disableAllTools({bool keepAddMenu = false}) {
+  bool disableAllTools({bool keepAddMenu = false}) {
+    bool wasSettingsOpen = showPenSettingsRow ||
+        showHighlighterSettingsRow ||
+        showLaserSettingsRow ||
+        showEraserSettingsRow ||
+        showLassoSettingsRow ||
+        showTextSettingsRow;
+
     isTextMode = false;
     isLassoMode = false;
     isLaserMode = false;
@@ -18,6 +25,8 @@ extension CanvasToolsLogic on CanvasController {
     showLassoSettingsRow = false;
     if (!keepAddMenu) showAddSettingsRow = false;
     notifyListeners();
+    
+    return wasSettingsOpen;
   }
 
   void toggleAddMenu() {
@@ -43,8 +52,9 @@ extension CanvasToolsLogic on CanvasController {
         selectedColor != Colors.white) {
       showPenSettingsRow = !showPenSettingsRow;
     } else {
-      disableAllTools();
+      bool openSettings = disableAllTools();
       if (selectedColor == Colors.white) selectedColor = Colors.black;
+      if (openSettings) showPenSettingsRow = true;
     }
     notifyListeners();
   }
@@ -53,8 +63,9 @@ extension CanvasToolsLogic on CanvasController {
     if (isHighlighterMode) {
       showHighlighterSettingsRow = !showHighlighterSettingsRow;
     } else {
-      disableAllTools();
+      bool openSettings = disableAllTools();
       isHighlighterMode = true;
+      if (openSettings) showHighlighterSettingsRow = true;
     }
     notifyListeners();
   }
@@ -63,8 +74,9 @@ extension CanvasToolsLogic on CanvasController {
     if (isLaserMode) {
       showLaserSettingsRow = !showLaserSettingsRow;
     } else {
-      disableAllTools();
+      bool openSettings = disableAllTools();
       isLaserMode = true;
+      if (openSettings) showLaserSettingsRow = true;
     }
     notifyListeners();
   }
@@ -73,8 +85,9 @@ extension CanvasToolsLogic on CanvasController {
     if (isLassoMode) {
       showLassoSettingsRow = !showLassoSettingsRow;
     } else {
-      disableAllTools();
+      bool openSettings = disableAllTools();
       isLassoMode = true;
+      if (openSettings) showLassoSettingsRow = true;
     }
     notifyListeners();
   }
@@ -83,8 +96,9 @@ extension CanvasToolsLogic on CanvasController {
     if (isTextMode) {
       showTextSettingsRow = !showTextSettingsRow;
     } else {
-      disableAllTools();
+      bool openSettings = disableAllTools();
       isTextMode = true;
+      if (openSettings) showTextSettingsRow = true;
     }
     notifyListeners();
   }
@@ -93,8 +107,9 @@ extension CanvasToolsLogic on CanvasController {
     if (isEraserMode) {
       showEraserSettingsRow = !showEraserSettingsRow;
     } else {
-      disableAllTools();
+      bool openSettings = disableAllTools();
       isEraserMode = true;
+      if (openSettings) showEraserSettingsRow = true;
     }
     notifyListeners();
   }

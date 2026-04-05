@@ -1,18 +1,19 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'dart:convert';
 import '../../models/canvas_models.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
-import 'package:google_fonts/google_fonts.dart';
-import '../pro_compact_color_picker.dart';
 import '../../controllers/canvas_controller.dart';
 import '../canvas_widgets/text_toolbar_dock.dart';
 import '../canvas_widgets/drawing_tools_row.dart';
+import 'inspector_tabs/editing_tab.dart';
+import 'inspector_tabs/box_tab.dart';
+import 'inspector_tabs/presets_tab.dart';
+import 'inspector_tabs/inspector_overlay_frame.dart';
+import 'inspector_tabs/inspector_content.dart';
+
 part 'interactive_text_inspector.dart';
-
-
 class TextPreset {
   final Color fillColor;
   final Color borderColor;
@@ -132,6 +133,27 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
         document: doc,
         selection: const TextSelection.collapsed(offset: 0),
       );
+
+      if (widget.textData.deltaJson == null || widget.textData.deltaJson!.isEmpty) {
+        if (widget.textData.isBold) _quillController.formatSelection(quill.Attribute.bold);
+        if (widget.textData.isItalic) _quillController.formatSelection(quill.Attribute.italic);
+        if (widget.textData.isUnderline) _quillController.formatSelection(quill.Attribute.underline);
+        if (widget.textData.isStrikethrough) _quillController.formatSelection(quill.Attribute.strikeThrough);
+        
+        final hexColor = '#${widget.textData.color.value.toRadixString(16).padLeft(8, '0')}';
+        _quillController.formatSelection(quill.ColorAttribute(hexColor));
+        _quillController.formatSelection(quill.SizeAttribute('${widget.textData.fontSize}'));
+        
+        if (widget.textData.textAlign == 'center') {
+           _quillController.formatSelection(quill.Attribute.centerAlignment);
+        } else if (widget.textData.textAlign == 'right') {
+           _quillController.formatSelection(quill.Attribute.rightAlignment);
+        } else if (widget.textData.textAlign == 'justify') {
+           _quillController.formatSelection(quill.Attribute.justifyAlignment);
+        } else if (widget.textData.textAlign == 'left') {
+           _quillController.formatSelection(quill.Attribute.leftAlignment);
+        }
+      }
     }
 
     _quillController.readOnly = widget.readOnly;
@@ -181,6 +203,7 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
     if (isEditing) {
       if (widget.canvasCtrl?.activeEditingText?.id != widget.textData.id) {
         if (mounted) {
+          if (_focusNode.hasFocus) { _focusNode.unfocus(); }
           setState(() {
             isSelected = false;
             isEditing = false;
@@ -281,7 +304,7 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
       left: widget.textData.rect.left - hOffset,
       top: widget.textData.rect.top - topOffset,
       width: parentWidth,
-      height: widget.textData.rect.height + 50,
+      height: widget.textData.rect.height + (topOffset * 2),
       child: Transform.rotate(
         angle: widget
             .textData
@@ -290,7 +313,7 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
           groupId: tapGroupId,
           onTapOutside: (_) async {
             if (TextToolbarDock.isMenuOpen) return;
-            if (DrawingToolsRow.isColorPickerOpen) return;
+            if (isColorPickerOpen) return;
             // Dropdowns & Dialogs push new routes. Ignore outside taps if a popup is active.
             if (ModalRoute.of(context)?.isCurrent != true) return;
 
@@ -305,6 +328,7 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
             if (_lastFormatTime > tapTime - 100) return;
 
             if (isSelected || isEditing) {
+              if (_focusNode.hasFocus) { _focusNode.unfocus(); }
               setState(() {
                 isSelected = false;
                 isEditing = false;
@@ -394,28 +418,27 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
                         ),
                       ),
                       padding: const EdgeInsets.all(8),
-                      child: isEditing
-                          ? TapRegion(
-                              groupId: tapGroupId,
-                              child: quill.QuillEditor.basic(
-                                controller: _quillController,
-                                focusNode: _focusNode,
-                                config: _getEditorConfig(
-                                  context,
-                                  isEditing: true,
-                                ),
-                              ),
-                            )
-                          : IgnorePointer(
-                              child: quill.QuillEditor.basic(
-                                controller: _quillController,
-                                focusNode: FocusNode(),
-                                config: _getEditorConfig(
-                                  context,
-                                  isEditing: false,
-                                ),
+                      child: IgnorePointer(
+                        ignoring: !isEditing,
+                        child: TapRegion(
+                          groupId: tapGroupId,
+                          child: Directionality(
+                            textDirection: widget.textData.textAlign == 'left'
+                                ? TextDirection.ltr
+                                : (widget.textData.textAlign == 'right'
+                                    ? TextDirection.rtl
+                                    : Directionality.of(context)),
+                            child: quill.QuillEditor.basic(
+                              controller: _quillController,
+                              focusNode: _focusNode,
+                              config: _getEditorConfig(
+                                context,
+                                isEditing: isEditing,
                               ),
                             ),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -681,6 +704,7 @@ class _InteractiveTextWidgetState extends State<InteractiveTextWidget> with Inte
                                     if (widget.canvasCtrl?.activeEditingText?.id == widget.textData.id) {
                                       widget.canvasCtrl?.stopEditingText();
                                     }
+                                    if (_focusNode.hasFocus) { _focusNode.unfocus(); }
                                     widget.onDelete();
                                   },
                                   child: Container(

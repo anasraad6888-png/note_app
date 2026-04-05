@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../controllers/audio_controller.dart';
@@ -127,13 +128,13 @@ class CanvasToolPalette extends StatelessWidget {
               builder: (context, matrix, _) {
                 final currentScale = matrix.getMaxScaleOnAxis().clamp(minScale, 5.0);
                 return Slider(
-                  value: currentScale,
-                  min: minScale,
-                  max: 5.0,
+                  value: math.log(currentScale),
+                  min: math.log(minScale),
+                  max: math.log(5.0),
                   activeColor: Colors.blueGrey,
                   inactiveColor: Colors.grey.shade300,
                   onChanged: (val) =>
-                      canvasCtrl.setZoom(val, MediaQuery.of(context).size),
+                      canvasCtrl.setZoom(math.exp(val), MediaQuery.of(context).size),
                 );
               },
             ),
@@ -162,14 +163,17 @@ class CanvasToolPalette extends StatelessWidget {
         (canvasCtrl.showPenSettingsRow ||
             canvasCtrl.showHighlighterSettingsRow ||
             canvasCtrl.showLaserSettingsRow ||
-            canvasCtrl.showTextSettingsRow ||
             canvasCtrl.showEraserSettingsRow ||
             canvasCtrl.showLassoSettingsRow ||
+            canvasCtrl.showTextSettingsRow ||
             canvasCtrl.showAddSettingsRow)) {
       settingsContent =
           Container(
                 key: isFeedback ? null : canvasCtrl.dockedSettingsKey,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: EdgeInsets.symmetric(
+                  horizontal: isVertical ? 6 : 16, 
+                  vertical: isVertical ? 16 : 6,
+                ),
                 decoration: BoxDecoration(
                   color: canvasCtrl.isDarkMode ? const Color(0xD926262A) : const Color(0xE6F5F5F7),
                   borderRadius: BorderRadius.circular(40),
@@ -181,13 +185,16 @@ class CanvasToolPalette extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: SingleChildScrollView(
-                  scrollDirection: isVertical ? Axis.vertical : Axis.horizontal,
-                  child: DrawingToolsRow.buildSettingsRow(
-                    canvasCtrl,
-                    context,
-                    reversed: canvasCtrl.toolbarPosition == ToolbarPosition.right,
-                    isVertical: isVertical,
+                child: ScrollConfiguration(
+                  behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+                  child: SingleChildScrollView(
+                    scrollDirection: isVertical ? Axis.vertical : Axis.horizontal,
+                    child: DrawingToolsRow.buildSettingsRow(
+                      canvasCtrl,
+                      context,
+                      reversed: canvasCtrl.toolbarPosition == ToolbarPosition.right,
+                      isVertical: isVertical,
+                    ),
                   ),
                 ),
               )
@@ -200,40 +207,60 @@ class CanvasToolPalette extends StatelessWidget {
       duration: const Duration(milliseconds: 600),
       curve: Curves.easeOutExpo,
       child: isVertical
-          ? IntrinsicHeight(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [toolsContent],
-              ),
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [toolsContent],
             )
-          : IntrinsicWidth(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [toolsContent],
-              ),
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [toolsContent],
             ),
     );
 
-    if (settingsContent == null || isFeedback) return mainContainer;
-
-    if (canvasCtrl.toolbarPosition == ToolbarPosition.bottom) {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [settingsContent, const SizedBox(height: 8), mainContainer],
-      );
-    } else if (canvasCtrl.toolbarPosition == ToolbarPosition.left) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [mainContainer, const SizedBox(width: 8), settingsContent],
-      );
-    } else if (canvasCtrl.toolbarPosition == ToolbarPosition.right) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [settingsContent, const SizedBox(width: 8), mainContainer],
-      );
+    Widget result;
+    if (isFeedback) {
+      result = mainContainer;
+    } else {
+      if (canvasCtrl.toolbarPosition == ToolbarPosition.bottom) {
+        result = Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            settingsContent ?? const SizedBox.shrink(),
+            settingsContent != null ? const SizedBox(height: 8) : const SizedBox.shrink(),
+            mainContainer,
+          ],
+        );
+      } else if (canvasCtrl.toolbarPosition == ToolbarPosition.left) {
+        result = Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            mainContainer,
+            settingsContent != null ? const SizedBox(width: 8) : const SizedBox.shrink(),
+            settingsContent ?? const SizedBox.shrink(),
+          ],
+        );
+      } else if (canvasCtrl.toolbarPosition == ToolbarPosition.right) {
+        result = Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            settingsContent ?? const SizedBox.shrink(),
+            settingsContent != null ? const SizedBox(width: 8) : const SizedBox.shrink(),
+            mainContainer,
+          ],
+        );
+      } else {
+        result = mainContainer;
+      }
     }
-    return mainContainer;
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.vertical,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: result,
+      ),
+    );
   }
 }

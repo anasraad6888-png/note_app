@@ -40,7 +40,6 @@ class PageTemplate {
   final Color lineColor;
   final double lineSpacing;
   final bool isLandscape;
-  final bool isInfinite;
   final String? customAssetPath;
   final double canvasWidth;
   final double canvasHeight;
@@ -51,7 +50,6 @@ class PageTemplate {
     this.lineColor = const Color(0x33000000), // default subtle line color
     this.lineSpacing = 30.0,
     this.isLandscape = false,
-    this.isInfinite = false,
     this.customAssetPath,
     this.canvasWidth = 700.0,
     this.canvasHeight = 900.0,
@@ -63,7 +61,6 @@ class PageTemplate {
     Color? lineColor,
     double? lineSpacing,
     bool? isLandscape,
-    bool? isInfinite,
     String? customAssetPath,
     double? canvasWidth,
     double? canvasHeight,
@@ -74,7 +71,6 @@ class PageTemplate {
       lineColor: lineColor ?? this.lineColor,
       lineSpacing: lineSpacing ?? this.lineSpacing,
       isLandscape: isLandscape ?? this.isLandscape,
-      isInfinite: isInfinite ?? this.isInfinite,
       customAssetPath: customAssetPath ?? this.customAssetPath,
       canvasWidth: canvasWidth ?? this.canvasWidth,
       canvasHeight: canvasHeight ?? this.canvasHeight,

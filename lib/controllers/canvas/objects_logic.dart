@@ -12,6 +12,8 @@ extension CanvasObjectsLogic on CanvasController {
       borderColor: shapeBorderColor,
       fillColor: shapeFillColor,
       lineType: shapeLineType,
+      timestamp: audioCtrl.isRecording ? audioCtrl.currentAudioTimeMs : 0,
+      audioIndex: audioCtrl.isRecording ? audioCtrl.currentAudioIndex : null,
     );
     notifyContentChanged();
   }
@@ -72,6 +74,8 @@ extension CanvasObjectsLogic on CanvasController {
       borderWidth: tableBorderWidth,
       borderColor: tableBorderColor,
       fillColor: tableFillColor,
+      timestamp: audioCtrl.isRecording ? audioCtrl.currentAudioTimeMs : 0,
+      audioIndex: audioCtrl.isRecording ? audioCtrl.currentAudioIndex : null,
     );
     notifyContentChanged();
   }
@@ -118,22 +122,75 @@ extension CanvasObjectsLogic on CanvasController {
     }
   }
 
-  void addTextAt(int pageIndex, Offset position) {
-    currentPageIndex = pageIndex;
-    pagesTexts[pageIndex].add(
-      PageText(
-        id: UniqueKey().toString(),
-        text: "",
-        rect: Rect.fromLTWH(position.dx - 100, position.dy - 50, 200, 100),
-        color: isDarkMode ? Colors.white : Colors.black,
-        fontSize: defaultFontSize,
-        timestamp: audioCtrl.isRecording ? audioCtrl.currentAudioTimeMs : 0,
-        audioIndex: audioCtrl.isRecording ? audioCtrl.currentAudioIndex : null,
-        isEditing: true,
-      ),
-    );
-    saveStrokes();
+  void startText(int pageIndex, Offset position) {
+    if (!isTextMode) return;
+    textStartPos = position;
+    currentDrawingTextRect = Rect.fromLTWH(position.dx, position.dy, 0, 0);
     notifyContentChanged();
+  }
+
+  void updateText(int pageIndex, Offset position) {
+    if (currentDrawingTextRect != null && textStartPos != null) {
+      currentDrawingTextRect = Rect.fromPoints(
+        textStartPos!,
+        position,
+      );
+      notifyContentChanged();
+    }
+  }
+
+  void endText(int pageIndex) {
+    if (currentDrawingTextRect != null) {
+      while (pagesTexts.length <= pageIndex) {
+        pagesTexts.add([]);
+      }
+      
+      final rect = currentDrawingTextRect!;
+      Rect normalizedRect = Rect.fromLTRB(
+        rect.left < rect.right ? rect.left : rect.right,
+        rect.top < rect.bottom ? rect.top : rect.bottom,
+        rect.left > rect.right ? rect.left : rect.right,
+        rect.top > rect.bottom ? rect.top : rect.bottom,
+      );
+      
+      if (normalizedRect.width <= 15 || normalizedRect.height <= 15) {
+        // Single tap insertion (Default Text Box roughly: 200x100 centered around pointer)
+        normalizedRect = Rect.fromLTWH(
+          normalizedRect.left - 100,
+          normalizedRect.top - 50,
+          200,
+          100,
+        );
+      }
+      
+      currentPageIndex = pageIndex;
+      pagesTexts[pageIndex].add(
+        PageText(
+          id: UniqueKey().toString(),
+          text: "",
+          rect: normalizedRect,
+          color: (defaultTextColor.value == Colors.black.value && isDarkMode) 
+              ? Colors.white 
+              : defaultTextColor,
+          fontSize: defaultFontSize,
+          isBold: defaultTextBold,
+          isItalic: defaultTextItalic,
+          isUnderline: defaultTextUnderline,
+          isStrikethrough: defaultTextStrikethrough,
+          textAlign: defaultTextAlign,
+          fillColor: defaultTextFillColor,
+          borderColor: defaultTextBorderColor,
+          timestamp: audioCtrl.isRecording ? audioCtrl.currentAudioTimeMs : 0,
+          audioIndex: audioCtrl.isRecording ? audioCtrl.currentAudioIndex : null,
+          isEditing: true,
+        ),
+      );
+      
+      saveStrokes();
+      currentDrawingTextRect = null;
+      textStartPos = null;
+      notifyContentChanged();
+    }
   }
 
   void updateImagePosition(PageImage img, Offset delta) {

@@ -26,6 +26,15 @@ part 'canvas/tools_logic.dart';
 part 'canvas/objects_logic.dart';
 part 'canvas/io_logic.dart';
 part 'canvas/drawing_logic.dart';
+part 'canvas/audio_sync_logic.dart';
+part 'canvas/page_management_logic.dart';
+part 'canvas/geometry_logic.dart';
+part 'canvas/lasso_drawing_logic.dart';
+part 'canvas/export_logic.dart';
+part 'canvas/ocr_logic.dart';
+part 'canvas/selection_logic.dart';
+part 'canvas/colors_logic.dart';
+part 'canvas/scroll_logic.dart';
 
 class CanvasController extends ChangeNotifier {
   int contentVersion = 0;
@@ -111,55 +120,6 @@ class CanvasController extends ChangeNotifier {
 
   /// Auto-scrolls the canvas (paged mode) so the active text box is visible
   /// above the keyboard. Call this whenever the keyboard height changes.
-  void scrollToActiveText(double keyboardHeight, double screenHeight) {
-    if (activeEditingText == null) return;
-    if (!scrollController.hasClients) return;
-    if (keyboardHeight < 100) return; // Keyboard not meaningfully open
-
-    final pageIndex = currentPageIndex;
-    final textRect = activeEditingText!.rect;
-
-    // ListView padding top: 80, page vertical padding: 20 each side, page height: 900
-    // => each page slot = 940px, page top = 80 + pageIndex * 940 + 20
-    const double listTopPadding = 80.0;
-    const double pageSlotHeight = 940.0;
-    const double pageTopPadding = 20.0;
-    final double pageTopInScroll =
-        listTopPadding + pageIndex * pageSlotHeight + pageTopPadding;
-
-    // Y-center of text box in scroll space
-    final double textCenterY =
-        pageTopInScroll + textRect.top + textRect.height / 2;
-
-    // Visible region between top toolbar (~60px) and keyboard + text toolbar (~130px)
-    const double topClearance = 60.0;
-    final double bottomClearance = keyboardHeight + 70.0; // text toolbar ~70px
-    final double visibleHeight =
-        (screenHeight - topClearance - bottomClearance).clamp(100.0, double.infinity);
-
-    // Desired scroll: text center lands in the middle of the visible region
-    final double desired =
-        textCenterY - topClearance - visibleHeight / 2;
-
-    final double clamped = desired.clamp(
-      0.0,
-      scrollController.position.maxScrollExtent,
-    );
-
-    // Only scroll if the text is not already fully visible
-    final double currentOffset = scrollController.offset;
-    final double visibleTop = currentOffset + topClearance;
-    final double visibleBottom = currentOffset + screenHeight - bottomClearance;
-    final double textTop = pageTopInScroll + textRect.top;
-    final double textBottom = textTop + textRect.height;
-    if (textTop >= visibleTop && textBottom <= visibleBottom) return;
-
-    scrollController.animateTo(
-      clamped,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-    );
-  }
 
   void forceTextFocusReclamation() {
     notifyListeners();
@@ -249,27 +209,9 @@ class CanvasController extends ChangeNotifier {
   // Refactored fields returned to main class:
   Offset? shapeStartPos;
   Offset? tableStartPos;
+  Offset? textStartPos;
+  Rect? currentDrawingTextRect;
   bool isAudioBarVisible = false;
-
-  void jumpToPage(int index) {
-    if (index < 0 || index >= document.pages.length) return;
-
-    currentPageIndex = index;
-
-    // Calculate the scroll position
-    // ListView padding top: 140, page padding vertical: 20*2=40, page height: 900
-    double scrollPosition = 140.0 + (index * 940.0);
-
-    if (scrollController.hasClients) {
-      scrollController.animateTo(
-        scrollPosition,
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
-      );
-    }
-
-    // notifyListeners() is called by the currentPageIndex setter
-  }
 
   // Pen Auto-Shapes internal state
   Timer? penHoldTimer;
@@ -299,357 +241,16 @@ class CanvasController extends ChangeNotifier {
   bool lassoSelectShapes = true;
   bool lassoSelectTables = true;
 
-  void copySelection() {
-    if (activeSelectionGroup != null) {
-      clipboardGroup = activeSelectionGroup!.clone();
-      showMessage?.call("تم نسخ العناصر");
-    }
-  }
 
-  void cutSelection() {
-    if (activeSelectionGroup != null) {
-      clipboardGroup = activeSelectionGroup!.clone();
-      deleteSelection();
-      showMessage?.call("تم قص العناصر");
-    }
-  }
 
-  void pasteClipboard(int pageIndex, Offset position) {
-    if (clipboardGroup == null) return;
-    saveStrokes(); // For undo
 
-    final clone = clipboardGroup!.clone();
-    clone.pageIndex = pageIndex;
 
-    final rect = clone.initialBoundingBox;
-    if (rect != null) {
-      final offset = position - rect.center;
-      clone.currentTranslation += offset;
-    }
 
-    if (activeSelectionGroup != null) commitSelection();
-    activeSelectionGroup = clone;
 
-    disableAllTools();
-    isLassoMode = true;
-    showLassoSettingsRow = true;
 
-    notifyContentChanged();
-  }
 
-  void duplicateSelection() {
-    if (activeSelectionGroup == null) return;
 
-    final clone = activeSelectionGroup!.clone();
-    commitSelection(); // Bake the original elements natively into the page
 
-    clone.currentTranslation += const Offset(
-      20,
-      20,
-    ); // Append slight interaction offset
-    activeSelectionGroup = clone;
-
-    notifyContentChanged();
-  }
-
-  void recolorSelection(Color color) {
-    if (activeSelectionGroup == null) return;
-    final group = activeSelectionGroup!;
-
-    final newStrokes = <DrawingPoint?>[];
-    for (var p in group.strokes) {
-      if (p == null) {
-        newStrokes.add(null);
-      } else {
-        final newPaint = Paint()
-          ..color = color
-          ..strokeWidth = p.paint.strokeWidth
-          ..strokeCap = p.paint.strokeCap
-          ..strokeJoin = p.paint.strokeJoin
-          ..style = p.paint.style
-          ..blendMode = p.paint.blendMode;
-        newStrokes.add(
-          DrawingPoint(
-            p.offset,
-            newPaint,
-            pressure: p.pressure,
-            penType: p.penType,
-            timestamp: p.timestamp,
-            audioIndex: p.audioIndex,
-          ),
-        );
-      }
-    }
-    group.strokes = newStrokes;
-
-    for (var shape in group.shapes) {
-      shape.borderColor = color;
-    }
-    for (var text in group.texts) {
-      text.color = color;
-    }
-    for (var table in group.tables) {
-      table.borderColor = color;
-    }
-
-    notifyContentChanged();
-  }
-
-  Future<void> extractTextForPage(int pageIndex) async {
-    if (pdfDocument == null) return;
-    if (pdfTextBounds.containsKey(pageIndex)) return;
-    if (_currentlyExtractingPage == pageIndex) return;
-
-    _currentlyExtractingPage = pageIndex;
-    final textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
-
-    try {
-      final doc = pdfDocument!;
-      if (pageIndex >= doc.pagesCount) return;
-
-      final page = await doc.getPage(pageIndex + 1);
-      final scale = 700 / page.width;
-      final renderW = page.width * scale * 2;
-      final renderH = page.height * scale * 2;
-      final image = await page.render(
-        width: renderW,
-        height: renderH,
-        format: PdfPageImageFormat.jpeg,
-        quality: 90,
-      );
-      await page.close();
-
-      final tempDir = await getTemporaryDirectory();
-      final tempFile = File('${tempDir.path}/pdf_temp_ocr_$pageIndex.jpg');
-      await tempFile.writeAsBytes(image!.bytes);
-
-      final inputImage = InputImage.fromFilePath(tempFile.path);
-      final recognizedText = await textRecognizer.processImage(inputImage);
-
-      List<Rect> boxes = [];
-      for (TextBlock block in recognizedText.blocks) {
-        for (TextLine line in block.lines) {
-          final rect = line.boundingBox;
-          boxes.add(
-            Rect.fromLTRB(
-              rect.left / 2,
-              rect.top / 2,
-              rect.right / 2,
-              rect.bottom / 2,
-            ),
-          );
-        }
-      }
-
-      pdfTextBounds[pageIndex] = boxes;
-      tempFile.deleteSync();
-    } catch (e) {
-      debugPrint("OCR extraction failed for page $pageIndex: $e");
-    } finally {
-      if (_currentlyExtractingPage == pageIndex)
-        _currentlyExtractingPage = null;
-      await textRecognizer.close();
-      notifyListeners();
-    }
-  }
-
-  Future<void> performOCR(BuildContext context) async {
-    if (activeSelectionGroup == null || activeSelectionGroup!.strokes.isEmpty) {
-      showMessage?.call("لا يوجد حبر مكتوب بالتحديد لقراءته!");
-      return;
-    }
-
-    try {
-      final group = activeSelectionGroup!;
-      final bounds = group.initialBoundingBox!;
-      final width = bounds.width;
-      final height = bounds.height;
-      if (width <= 0 || height <= 0) return;
-
-      final recorder = ui.PictureRecorder();
-      final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, width, height));
-
-      canvas.drawRect(
-        Rect.fromLTWH(0, 0, width, height),
-        Paint()..color = Colors.white,
-      );
-      canvas.translate(-bounds.left, -bounds.top);
-
-      final painter = DrawingPainter(
-        group.strokes,
-        pageTemplates[currentPageIndex],
-        isDarkMode: false,
-        version: contentVersion,
-      );
-      painter.paint(canvas, Size(bounds.right, bounds.bottom));
-
-      final picture = recorder.endRecording();
-      final img = await picture.toImage(width.toInt(), height.toInt());
-      final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
-      if (byteData == null) return;
-
-      final bytes = byteData.buffer.asUint8List();
-
-      final tempDir = await getTemporaryDirectory();
-      final file = File(
-        '${tempDir.path}/ocr_temp_${DateTime.now().millisecondsSinceEpoch}.png',
-      );
-      await file.writeAsBytes(bytes);
-
-      final inputImage = InputImage.fromFilePath(file.path);
-      final textRecognizer = TextRecognizer(
-        script: TextRecognitionScript.latin,
-      );
-      final RecognizedText recognizedText = await textRecognizer.processImage(
-        inputImage,
-      );
-      await textRecognizer.close();
-
-      final text = recognizedText.text.trim();
-      file.deleteSync();
-
-      if (text.isEmpty) {
-        showMessage?.call("لم يتم التعرف على أية نصوص.");
-        return;
-      }
-
-      final pageIndex = group.pageIndex;
-      final txtData = PageText(
-        id: UniqueKey().toString(),
-        text: text,
-        rect: Rect.fromLTWH(
-          bounds.left,
-          bounds.bottom + 10,
-          math.max(200, bounds.width),
-          math.max(60, bounds.height),
-        ),
-        color: isDarkMode ? Colors.white : Colors.black,
-        fontSize: 24.0,
-        timestamp: DateTime.now().millisecondsSinceEpoch,
-      );
-
-      pagesTexts[pageIndex].add(txtData);
-      saveStrokes();
-      notifyListeners();
-      showMessage?.call("تم تحويل النص بنجاح!");
-    } catch (e) {
-      showMessage?.call("خطأ أثناء قراءة النص: $e", isError: true);
-    }
-  }
-
-  void translateSelection(Offset delta) {
-    if (activeSelectionGroup == null) return;
-    activeSelectionGroup!.currentTranslation += delta;
-    notifyContentChanged();
-  }
-
-  void scaleSelection(double scaleFactor) {
-    if (activeSelectionGroup == null) return;
-    activeSelectionGroup!.currentScale *= scaleFactor;
-    notifyContentChanged();
-  }
-
-  void rotateSelection(double angleDelta) {
-    if (activeSelectionGroup == null) return;
-    activeSelectionGroup!.currentRotation += angleDelta;
-    notifyContentChanged();
-  }
-
-  void commitSelection() {
-    if (activeSelectionGroup == null) return;
-    final group = activeSelectionGroup!;
-
-    final double tx = group.currentTranslation.dx;
-    final double ty = group.currentTranslation.dy;
-    final double scale = group.currentScale;
-    final double rot = group.currentRotation;
-    final Offset center = group.initialBoundingBox?.center ?? Offset.zero;
-
-    Offset applyTransform(Offset pt) {
-      double dx = pt.dx - center.dx;
-      double dy = pt.dy - center.dy;
-      dx *= scale;
-      dy *= scale;
-      if (rot != 0) {
-        final rdx = dx * math.cos(rot) - dy * math.sin(rot);
-        final rdy = dx * math.sin(rot) + dy * math.cos(rot);
-        dx = rdx;
-        dy = rdy;
-      }
-      return Offset(center.dx + dx + tx, center.dy + dy + ty);
-    }
-
-    final bakedStrokes = group.strokes.map((stroke) {
-      if (stroke == null) return null;
-      final newPaint = Paint()
-        ..color = stroke.paint.color
-        ..strokeWidth = math.max(0.1, stroke.paint.strokeWidth * scale)
-        ..strokeCap = stroke.paint.strokeCap
-        ..strokeJoin = stroke.paint.strokeJoin
-        ..style = stroke.paint.style;
-      return DrawingPoint(
-        applyTransform(stroke.offset),
-        newPaint,
-        pressure: stroke.pressure,
-        penType: stroke.penType,
-        timestamp: stroke.timestamp,
-        audioIndex: stroke.audioIndex,
-      );
-    }).toList();
-
-    for (var img in group.images) {
-      final imgCenter = Rect.fromLTWH(
-        img.offset.dx,
-        img.offset.dy,
-        img.size.width,
-        img.size.height,
-      ).center;
-      final newCenter = applyTransform(imgCenter);
-      img.size = Size(img.size.width * scale, img.size.height * scale);
-      img.offset = Offset(
-        newCenter.dx - img.size.width / 2,
-        newCenter.dy - img.size.height / 2,
-      );
-    }
-
-    for (var txt in group.texts) {
-      final newCenter = applyTransform(txt.rect.center);
-      txt.rect = Rect.fromCenter(
-        center: newCenter,
-        width: txt.rect.width * scale,
-        height: txt.rect.height * scale,
-      );
-      txt.fontSize *= scale;
-      txt.angle += rot;
-    }
-
-    for (var shp in group.shapes) {
-      final newCenter = applyTransform(shp.rect.center);
-      shp.rect = Rect.fromCenter(
-        center: newCenter,
-        width: shp.rect.width * scale,
-        height: shp.rect.height * scale,
-      );
-    }
-
-    for (var tab in group.tables) {
-      final newCenter = applyTransform(tab.rect.center);
-      tab.rect = Rect.fromCenter(
-        center: newCenter,
-        width: tab.rect.width * scale,
-        height: tab.rect.height * scale,
-      );
-    }
-
-    pagesPoints[group.pageIndex].addAll(bakedStrokes);
-    pagesImages[group.pageIndex].addAll(group.images);
-    pagesTexts[group.pageIndex].addAll(group.texts);
-    pagesShapes[group.pageIndex].addAll(group.shapes);
-    pagesTables[group.pageIndex].addAll(group.tables);
-
-    activeSelectionGroup = null;
-    notifyContentChanged();
-  }
 
   bool get canUndo =>
       currentPageIndex < pagesPoints.length &&
@@ -671,6 +272,8 @@ class CanvasController extends ChangeNotifier {
   bool defaultTextStrikethrough = false;
   String defaultTextAlign = 'left';
   double defaultFontSize = 24.0;
+  List<Color> defaultTextColors = [Colors.black, Colors.white, Colors.red, Colors.blue];
+  List<Color> customTextColors = [];
   Color defaultTextColor = Colors.black;
   Color defaultTextFillColor = Colors.transparent;
   Color defaultTextBorderColor = Colors.transparent;
@@ -678,7 +281,7 @@ class CanvasController extends ChangeNotifier {
   // Laser settings
   int laserFadeDuration = 2; // Default to 2 seconds
   bool isLaserDot = false;
-  Color laserColor = Colors.redAccent;
+  Color laserColor = Colors.red;
   LaserStroke? currentLaserStroke;
   int? _lastPointTime;
   Offset? _lastPointOffset;
@@ -707,7 +310,8 @@ class CanvasController extends ChangeNotifier {
     loadPenColors();
     loadHighlighterColors();
     loadLaserColors();
-    audioCtrl.addListener(notifyListeners);
+    loadTextColors();
+    audioCtrl.addListener(notifyContentChanged);
   }
 
   void toggleDarkMode() {
@@ -795,126 +399,14 @@ class CanvasController extends ChangeNotifier {
   List<Color> defaultPenColors = [Colors.black, Colors.red, Colors.green];
   List<Color> customPenColors = [];
 
-  void loadPenColors() {
-    try {
-      final box = Hive.box('settingsBox');
-      final defColors = box.get('defaultPenColors');
-      if (defColors != null && defColors is List) {
-        defaultPenColors = defColors.map((c) => Color(c as int)).toList();
-      }
-      final custColors = box.get('customPenColors');
-      if (custColors != null && custColors is List) {
-        customPenColors = custColors.map((c) => Color(c as int)).toList();
-      }
-      final widths = box.get('strokeWidthPresets');
-      if (widths != null && widths is List) {
-        strokeWidthPresets = widths.map((w) => (w as num).toDouble()).toList();
-      }
-      activeStrokeWidthIndex = box.get(
-        'activeStrokeWidthIndex',
-        defaultValue: 1,
-      );
 
-      if (activeStrokeWidthIndex >= 0 &&
-          activeStrokeWidthIndex < strokeWidthPresets.length) {
-        strokeWidth = strokeWidthPresets[activeStrokeWidthIndex];
-      }
-      isSettingsMagnetActive = box.get(
-        'isSettingsMagnetActive',
-        defaultValue: true,
-      );
 
-      final posIndex = box.get(
-        'toolbarPosition_${document.id}',
-        defaultValue: ToolbarPosition.bottom.index,
-      );
-      toolbarPosition = ToolbarPosition.values[posIndex as int];
-    } catch (_) {}
-  }
 
-  void savePenColors() {
-    try {
-      final box = Hive.box('settingsBox');
-      box.put(
-        'defaultPenColors',
-        defaultPenColors.map((c) => c.toARGB32()).toList(),
-      );
-      box.put(
-        'customPenColors',
-        customPenColors.map((c) => c.toARGB32()).toList(),
-      );
-      box.put('strokeWidthPresets', strokeWidthPresets);
-      box.put('activeStrokeWidthIndex', activeStrokeWidthIndex);
-      box.put('isSettingsMagnetActive', isSettingsMagnetActive);
-    } catch (_) {}
-  }
 
-  void selectStrokeWidthPreset(int index) {
-    if (index >= 0 && index < strokeWidthPresets.length) {
-      activeStrokeWidthIndex = index;
-      strokeWidth = strokeWidthPresets[index];
-      savePenColors();
-      notifyListeners();
-    }
-  }
 
-  void updateStrokeWidthPreset(int index, double newWidth) {
-    if (index >= 0 && index < strokeWidthPresets.length) {
-      strokeWidthPresets[index] = newWidth;
-      if (activeStrokeWidthIndex == index) {
-        strokeWidth = newWidth;
-      }
-      savePenColors();
-      notifyListeners();
-    }
-  }
 
-  void changeDefaultPenColor(int index, Color newColor) {
-    if (index >= 0 && index < defaultPenColors.length) {
-      defaultPenColors[index] = newColor;
-      if (selectedColor == defaultPenColors[index]) selectedColor = newColor;
-      savePenColors();
-      notifyListeners();
-    }
-  }
 
-  void addCustomPenColor(Color color) {
-    if (customPenColors.length < 7) {
-      customPenColors.add(color);
-      selectedColor = color;
-      savePenColors();
-      notifyListeners();
-    }
-  }
 
-  void changeCustomPenColor(int index, Color newColor) {
-    if (index >= 0 && index < customPenColors.length) {
-      customPenColors[index] = newColor;
-      if (selectedColor == customPenColors[index]) selectedColor = newColor;
-      savePenColors();
-      notifyListeners();
-    }
-  }
-
-  void deleteCustomPenColor(int index) {
-    if (index >= 0 && index < customPenColors.length) {
-      if ((defaultPenColors.length + customPenColors.length) > 3) {
-        customPenColors.removeAt(index);
-        savePenColors();
-        notifyListeners();
-      }
-    }
-  }
-
-  void deleteDefaultPenColor(int index) {
-    if (index >= 0 && index < defaultPenColors.length) {
-      if ((defaultPenColors.length + customPenColors.length) > 3) {
-        defaultPenColors.removeAt(index);
-        savePenColors();
-        notifyListeners();
-      }
-    }
-  }
 
   // --- Highlighter Colors Logic ---
   List<Color> defaultHighlighterColors = [
@@ -925,180 +417,25 @@ class CanvasController extends ChangeNotifier {
   ];
   List<Color> customHighlighterColors = [];
 
-  void loadHighlighterColors() {
-    try {
-      final box = Hive.box('settingsBox');
-      final defColors = box.get('defaultHighlighterColors');
-      if (defColors != null && defColors is List) {
-        defaultHighlighterColors = defColors
-            .map((c) => Color(c as int))
-            .toList();
-      }
-      final custColors = box.get('customHighlighterColors');
-      if (custColors != null && custColors is List) {
-        customHighlighterColors = custColors
-            .map((c) => Color(c as int))
-            .toList();
-      }
-    } catch (_) {}
-  }
 
-  void saveHighlighterColors() {
-    try {
-      final box = Hive.box('settingsBox');
-      box.put(
-        'defaultHighlighterColors',
-        defaultHighlighterColors.map((c) => c.toARGB32()).toList(),
-      );
-      box.put(
-        'customHighlighterColors',
-        customHighlighterColors.map((c) => c.toARGB32()).toList(),
-      );
-    } catch (_) {}
-  }
 
-  void changeDefaultHighlighterColor(int index, Color newColor) {
-    if (index >= 0 && index < defaultHighlighterColors.length) {
-      defaultHighlighterColors[index] = newColor;
-      if (highlighterColor == defaultHighlighterColors[index])
-        highlighterColor = newColor;
-      saveHighlighterColors();
-      notifyListeners();
-    }
-  }
 
-  void addCustomHighlighterColor(Color color) {
-    if (customHighlighterColors.length < 7) {
-      customHighlighterColors.add(color);
-      highlighterColor = color;
-      saveHighlighterColors();
-      notifyListeners();
-    }
-  }
 
-  void changeCustomHighlighterColor(int index, Color newColor) {
-    if (index >= 0 && index < customHighlighterColors.length) {
-      customHighlighterColors[index] = newColor;
-      if (highlighterColor == customHighlighterColors[index])
-        highlighterColor = newColor;
-      saveHighlighterColors();
-      notifyListeners();
-    }
-  }
 
-  void deleteCustomHighlighterColor(int index) {
-    if (index >= 0 && index < customHighlighterColors.length) {
-      if ((defaultHighlighterColors.length + customHighlighterColors.length) >
-          3) {
-        customHighlighterColors.removeAt(index);
-        saveHighlighterColors();
-        notifyListeners();
-      }
-    }
-  }
 
-  void deleteDefaultHighlighterColor(int index) {
-    if (index >= 0 && index < defaultHighlighterColors.length) {
-      if ((defaultHighlighterColors.length + customHighlighterColors.length) >
-          3) {
-        defaultHighlighterColors.removeAt(index);
-        saveHighlighterColors();
-        notifyListeners();
-      }
-    }
-  }
 
   // --- Laser Colors Logic ---
   List<Color> defaultLaserColors = [Colors.red, Colors.green, Colors.blue];
   List<Color> customLaserColors = [];
 
-  void loadLaserColors() {
-    try {
-      final box = Hive.box('settingsBox');
-      final defColors = box.get('defaultLaserColors');
-      if (defColors != null && defColors is List) {
-        defaultLaserColors = defColors.map((c) => Color(c as int)).toList();
-      }
-      final custColors = box.get('customLaserColors');
-      if (custColors != null && custColors is List) {
-        customLaserColors = custColors.map((c) => Color(c as int)).toList();
-      }
-    } catch (_) {}
-  }
 
-  void saveLaserColors() {
-    try {
-      final box = Hive.box('settingsBox');
-      box.put(
-        'defaultLaserColors',
-        defaultLaserColors.map((c) => c.toARGB32()).toList(),
-      );
-      box.put(
-        'customLaserColors',
-        customLaserColors.map((c) => c.toARGB32()).toList(),
-      );
-    } catch (_) {}
-  }
 
-  void changeDefaultLaserColor(int index, Color newColor) {
-    if (index >= 0 && index < defaultLaserColors.length) {
-      defaultLaserColors[index] = newColor;
-      if (laserColor == defaultLaserColors[index]) laserColor = newColor;
-      saveLaserColors();
-      notifyListeners();
-    }
-  }
 
-  void addCustomLaserColor(Color color) {
-    if (customLaserColors.length < 7) {
-      customLaserColors.add(color);
-      laserColor = color;
-      saveLaserColors();
-      notifyListeners();
-    }
-  }
 
-  void changeCustomLaserColor(int index, Color newColor) {
-    if (index >= 0 && index < customLaserColors.length) {
-      customLaserColors[index] = newColor;
-      if (laserColor == customLaserColors[index]) laserColor = newColor;
-      saveLaserColors();
-      notifyListeners();
-    }
-  }
 
-  void deleteCustomLaserColor(int index) {
-    if (index >= 0 && index < customLaserColors.length) {
-      if ((defaultLaserColors.length + customLaserColors.length) > 3) {
-        customLaserColors.removeAt(index);
-        saveLaserColors();
-        notifyListeners();
-      }
-    }
-  }
 
-  void deleteDefaultLaserColor(int index) {
-    if (index >= 0 && index < defaultLaserColors.length) {
-      if ((defaultLaserColors.length + customLaserColors.length) > 3) {
-        defaultLaserColors.removeAt(index);
-        saveLaserColors();
-        notifyListeners();
-      }
-    }
-  }
 
-  List<Color> get colors => [
-    Colors.black,
-    Colors.red,
-    Colors.green,
-    Colors.blue,
-    Colors.yellow,
-    Colors.orange,
-    Colors.purple,
-    Colors.brown,
-    Colors.grey,
-    Colors.white,
-  ];
+
 
   // --- Logic Methods ---
 }

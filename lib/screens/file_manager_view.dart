@@ -157,61 +157,168 @@ class FileManagerView extends StatelessWidget {
                   )
                 : null,
         title: isSelectionMode
-            ? Text(
-                '$selectedCount تم التحديد',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 20,
-                  color: textColor,
-                ),
-              )
-            : Row(
-          children: [
-            Expanded(
-              child: Text(
-                currentFolder != null ? currentFolder!.title : 'مدير الملفات',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 24,
-                  color: textColor,
-                ),
-              ),
-            ),
-            const SizedBox(width: 20),
-            Expanded(
-              flex: 2,
-              child: Container(
-                height: 45,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  color: cardColor,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withAlpha(5),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: TextField(
-                  onChanged: onSearchChanged,
-                  style: TextStyle(color: textColor),
-                  decoration: InputDecoration(
-                    hintText: 'البحث عن ملف أو مجلد...',
-                    hintStyle: TextStyle(color: subTextColor),
-                    border: InputBorder.none,
-                    icon: Icon(
-                      LucideIcons.search,
-                      size: 20,
-                      color: subTextColor,
+            ? Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '$selectedCount تم التحديد',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 20,
+                        color: textColor,
+                      ),
                     ),
                   ),
-                ),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      reverse: true,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(LucideIcons.checkSquare),
+                            tooltip: 'تحديد الكل',
+                            onPressed: () => onSelectAll(filteredDocuments, filteredFolders),
+                          ),
+                          IconButton(
+                            icon: const Icon(LucideIcons.folderInput),
+                            tooltip: 'نقل',
+                            onPressed: () {
+                              if (selectedCount > 0) _showBulkMoveDialog(context);
+                            },
+                          ),
+                          IconButton(
+                            icon: const Icon(LucideIcons.trash2, color: Colors.red),
+                            tooltip: 'حذف',
+                            onPressed: () {
+                              if (selectedCount > 0) _showBulkDeleteConfirmDialog(context);
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            : Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      currentFolder != null ? currentFolder!.title : 'مدير الملفات',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 24,
+                        color: textColor,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 1,
+                    child: Container(
+                      height: 45,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: cardColor,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withAlpha(5),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: TextField(
+                        onChanged: onSearchChanged,
+                        style: TextStyle(color: textColor),
+                        decoration: InputDecoration(
+                          hintText: 'بحث...',
+                          hintStyle: TextStyle(color: subTextColor),
+                          border: InputBorder.none,
+                          icon: Icon(
+                            LucideIcons.search,
+                            size: 20,
+                            color: subTextColor,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    flex: 2,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      reverse: true,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                            decoration: BoxDecoration(
+                              color: isDarkMode ? Colors.white10 : Colors.grey.withAlpha(20),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: IconButton(
+                              icon: Icon(
+                                isDarkMode ? LucideIcons.sun : LucideIcons.moon,
+                                color: textColor,
+                              ),
+                              tooltip: isDarkMode ? 'الوضع الفاتح' : 'الوضع الليلي',
+                              onPressed: onDarkModeToggle,
+                            ),
+                          ),
+                          Container(
+                            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                            decoration: BoxDecoration(
+                              color: isDarkMode ? Colors.white10 : Colors.grey.withAlpha(20),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: IconButton(
+                              icon: Icon(
+                                isGridView ? LucideIcons.list : LucideIcons.layoutGrid,
+                                color: textColor,
+                              ),
+                              tooltip: isGridView ? 'عرض القائمة' : 'عرض الشبكة',
+                              onPressed: onViewToggle,
+                            ),
+                          ),
+                          Container(
+                            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withAlpha(20),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: IconButton(
+                              icon: const Icon(LucideIcons.upload, color: Colors.green),
+                              tooltip: 'استيراد مستند',
+                              onPressed: onImportDocument,
+                            ),
+                          ),
+                          Container(
+                            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withAlpha(20),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: IconButton(
+                              icon: const Icon(
+                                LucideIcons.folderPlus,
+                                color: Colors.blueAccent,
+                              ),
+                              tooltip: 'إنشاء مجلد',
+                              onPressed: () => _showCreateFolderDialog(context),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(50),
           child: Container(
@@ -227,88 +334,6 @@ class FileManagerView extends StatelessWidget {
             ),
           ),
         ),
-        actions: isSelectionMode
-            ? [
-                IconButton(
-                  icon: const Icon(LucideIcons.checkSquare),
-                  tooltip: 'تحديد الكل',
-                  onPressed: () => onSelectAll(filteredDocuments, filteredFolders),
-                ),
-                IconButton(
-                  icon: const Icon(LucideIcons.folderInput),
-                  tooltip: 'نقل',
-                  onPressed: () {
-                    if (selectedCount > 0) _showBulkMoveDialog(context);
-                  },
-                ),
-                IconButton(
-                  icon: const Icon(LucideIcons.trash2, color: Colors.red),
-                  tooltip: 'حذف',
-                  onPressed: () {
-                    if (selectedCount > 0) _showBulkDeleteConfirmDialog(context);
-                  },
-                ),
-                const SizedBox(width: 8),
-              ]
-            : [
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-            decoration: BoxDecoration(
-              color: isDarkMode ? Colors.white10 : Colors.grey.withAlpha(20),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: IconButton(
-              icon: Icon(
-                isDarkMode ? LucideIcons.sun : LucideIcons.moon,
-                color: textColor,
-              ),
-              tooltip: isDarkMode ? 'الوضع الفاتح' : 'الوضع الليلي',
-              onPressed: onDarkModeToggle,
-            ),
-          ),
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-            decoration: BoxDecoration(
-              color: isDarkMode ? Colors.white10 : Colors.grey.withAlpha(20),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: IconButton(
-              icon: Icon(
-                isGridView ? LucideIcons.list : LucideIcons.layoutGrid,
-                color: textColor,
-              ),
-              tooltip: isGridView ? 'عرض القائمة' : 'عرض الشبكة',
-              onPressed: onViewToggle,
-            ),
-          ),
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-            decoration: BoxDecoration(
-              color: Colors.green.withAlpha(20),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: IconButton(
-              icon: const Icon(LucideIcons.upload, color: Colors.green),
-              tooltip: 'استيراد مستند',
-              onPressed: onImportDocument,
-            ),
-          ),
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-            decoration: BoxDecoration(
-              color: Colors.blue.withAlpha(20),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: IconButton(
-              icon: const Icon(
-                LucideIcons.folderPlus,
-                color: Colors.blueAccent,
-              ),
-              tooltip: 'إنشاء مجلد',
-              onPressed: () => _showCreateFolderDialog(context),
-            ),
-          ),
-        ],
       ),
       body: itemsCount == 0
           ? Center(

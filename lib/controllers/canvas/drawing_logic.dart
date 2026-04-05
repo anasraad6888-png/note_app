@@ -1,365 +1,62 @@
 part of '../canvas_controller.dart';
 
 extension CanvasDrawingLogic on CanvasController {
-  List<DrawingPoint?> getSyncedPoints(int pageIndex) {
-    if (audioCtrl.currentAudioIndex == null ||
-        (!audioCtrl.isPlaying &&
-            !audioCtrl.isRecording &&
-            audioCtrl.currentAudioTimeMs == 0)) {
-      return pagesPoints[pageIndex];
-    }
-    int activeIndex = audioCtrl.currentAudioIndex ?? -1;
-    return pagesPoints[pageIndex].where((p) {
-      if (p == null) return true;
-      if (p.audioIndex != activeIndex) return true;
-      return p.timestamp <= audioCtrl.currentAudioTimeMs;
-    }).toList();
-  }
 
-  List<PageShape> getSyncedShapes(int index) {
-    if (audioCtrl.currentAudioIndex == null ||
-        (!audioCtrl.isPlaying &&
-            !audioCtrl.isRecording &&
-            audioCtrl.currentAudioTimeMs == 0)) {
-      return pagesShapes[index];
-    }
-    int activeIndex = audioCtrl.currentAudioIndex ?? -1;
-    return pagesShapes[index].where((s) {
-      if (s.audioIndex != activeIndex) return true;
-      return s.timestamp <= audioCtrl.currentAudioTimeMs;
-    }).toList();
-  }
 
-  List<PageImage> getSyncedImages(int index) {
-    if (audioCtrl.currentAudioIndex == null ||
-        (!audioCtrl.isPlaying &&
-            !audioCtrl.isRecording &&
-            audioCtrl.currentAudioTimeMs == 0)) {
-      return pagesImages[index];
-    }
-    int activeIndex = audioCtrl.currentAudioIndex ?? -1;
-    return pagesImages[index].where((img) {
-      if (img.audioIndex != activeIndex) return true;
-      return img.timestamp <= audioCtrl.currentAudioTimeMs;
-    }).toList();
-  }
 
-  List<PageText> getSyncedTexts(int index) {
-    if (audioCtrl.currentAudioIndex == null ||
-        (!audioCtrl.isPlaying &&
-            !audioCtrl.isRecording &&
-            audioCtrl.currentAudioTimeMs == 0)) {
-      return pagesTexts[index];
-    }
-    int activeIndex = audioCtrl.currentAudioIndex ?? -1;
-    return pagesTexts[index].where((t) {
-      if (t.audioIndex != activeIndex) return true;
-      return t.timestamp <= audioCtrl.currentAudioTimeMs;
-    }).toList();
-  }
 
-  List<PageTable> getSyncedTables(int index) {
-    if (audioCtrl.currentAudioIndex == null ||
-        (!audioCtrl.isPlaying &&
-            !audioCtrl.isRecording &&
-            audioCtrl.currentAudioTimeMs == 0)) {
-      return pagesTables[index];
-    }
-    int activeIndex = audioCtrl.currentAudioIndex ?? -1;
-    return pagesTables[index].where((tbl) {
-      if (tbl.audioIndex != activeIndex) return true;
-      return tbl.timestamp <= audioCtrl.currentAudioTimeMs;
-    }).toList();
-  }
 
-  void ensurePageExists(int pageIndex) {
-    while (pagesPoints.length <= pageIndex) {
-      pagesPoints.add([]);
-      redoPagesPoints.add([]);
-      pagesImages.add([]);
-      pagesTexts.add([]);
-      pagesShapes.add([]);
-      pagesTables.add([]);
-      activeLaserStrokes.add([]);
-      pagesScreenshotControllers.add(ScreenshotController());
-      pagesBookmarks.add(false);
-      pagesOutlines.add(null);
-      pdfPageMapping.add(pagesPoints.length);
-      pageThumbnails.add(null);
-      pageTemplates.add(const PageTemplate());
-    }
-    while (activeLaserStrokes.length < pagesPoints.length) {
-      activeLaserStrokes.add([]);
-    }
-  }
 
-  void undo(int pageIndex) {
-    if (pagesPoints[pageIndex].isEmpty) return;
-    if (pagesPoints[pageIndex].last == null) {
-      redoPagesPoints[pageIndex].add(pagesPoints[pageIndex].removeLast());
-    }
-    while (pagesPoints[pageIndex].isNotEmpty &&
-        pagesPoints[pageIndex].last != null) {
-      redoPagesPoints[pageIndex].add(pagesPoints[pageIndex].removeLast());
-    }
-    saveStrokes();
-    notifyContentChanged();
-  }
 
-  void redo(int pageIndex) {
-    if (redoPagesPoints[pageIndex].isEmpty) return;
-    bool addedPoints = false;
-    while (redoPagesPoints[pageIndex].isNotEmpty) {
-      final pt = redoPagesPoints[pageIndex].removeLast();
-      pagesPoints[pageIndex].add(pt);
-      if (pt == null && addedPoints) break;
-      addedPoints = true;
-    }
-    saveStrokes();
-    notifyContentChanged();
-  }
 
-  bool isPointInPolygon(Offset point, List<Offset> polygon) {
-    bool isInside = false;
-    int j = polygon.length - 1;
-    for (int i = 0; i < polygon.length; i++) {
-      if ((polygon[i].dy > point.dy) != (polygon[j].dy > point.dy) &&
-          point.dx <
-              (polygon[j].dx - polygon[i].dx) *
-                      (point.dy - polygon[i].dy) /
-                      (polygon[j].dy - polygon[i].dy) +
-                  polygon[i].dx) {
-        isInside = !isInside;
-      }
-      j = i;
-    }
-    return isInside;
-  }
 
-  bool isRectInPolygon(Rect rect, double angle, List<Offset> polygon) {
-    if (polygon.isEmpty) return false;
-    final center = rect.center;
-    final List<Offset> corners = [
-      rect.topLeft,
-      rect.topRight,
-      rect.bottomRight,
-      rect.bottomLeft,
-    ];
 
-    if (angle != 0) {
-      for (int i = 0; i < 4; i++) {
-        final c = corners[i];
-        final dx = c.dx - center.dx;
-        final dy = c.dy - center.dy;
-        corners[i] = Offset(
-          center.dx + dx * math.cos(angle) - dy * math.sin(angle),
-          center.dy + dx * math.sin(angle) + dy * math.cos(angle),
-        );
-      }
-    }
 
-    for (var corner in corners) {
-      if (isPointInPolygon(corner, polygon)) return true;
-    }
 
-    // Check if any polygon vertex is inside rect bounds considering rotation
-    for (var pt in polygon) {
-      if (angle == 0) {
-        if (rect.contains(pt)) return true;
-      } else {
-        final dx = pt.dx - center.dx;
-        final dy = pt.dy - center.dy;
-        final unrotatedPt = Offset(
-          center.dx + dx * math.cos(-angle) - dy * math.sin(-angle),
-          center.dy + dx * math.sin(-angle) + dy * math.cos(-angle),
-        );
-        if (rect.contains(unrotatedPt)) return true;
-      }
-    }
-    return false;
-  }
 
-  bool isPointInSelectionUI(Offset pt) {
-    if (activeSelectionGroup == null) return false;
-    final rect = getSelectionBoundingBox(activeSelectionGroup!.pageIndex);
-    if (rect == null) return false;
-    
-    // Validate Bounding Box Handle Padding
-    final boundsRect = Rect.fromLTWH(rect.left - 30, rect.top - 30, rect.width + 60, rect.height + 60);
-    if (boundsRect.contains(pt)) return true;
-    
-    // Validate Context Menu Geometry
-    final menuRect = Rect.fromLTWH(rect.left - 20, rect.top - 80, rect.width + 40, 80);
-    if (menuRect.contains(pt)) return true;
-    
-    return false;
-  }
-
-  void startLasso(Offset pt) {
-    if (activeSelectionGroup != null) {
-      commitSelection();
-    }
-    lassoPath = [pt];
-    notifyListeners();
-  }
-
-  void updateLasso(Offset pt) {
-    if (lassoPath != null) {
-      lassoPath!.add(pt);
-      notifyContentChanged();
-    }
-  }
-
-  void finishLassoSelection(int pageIndex) {
-    if (lassoPath == null || lassoPath!.length < 3) {
-      lassoPath = null;
-      notifyListeners();
-      return;
-    }
-
-    commitSelection(); // finalize previous bounds
-    
-    final group = CanvasSelectionGroup(pageIndex);
-    final poly = lassoPath!;
-
-    // 1. Strokes
-    List<DrawingPoint?> remainingStrokes = [];
-    List<DrawingPoint> currentStroke = [];
-
-    for (var pt in pagesPoints[pageIndex]) {
-      if (pt != null) {
-        currentStroke.add(pt);
-      } else {
-        if (currentStroke.isNotEmpty) {
-          if (lassoSelectHandwriting && currentStroke.any((p) => isPointInPolygon(p.offset, poly))) {
-            group.strokes.addAll(currentStroke);
-            group.strokes.add(null);
-          } else {
-            remainingStrokes.addAll(currentStroke);
-            remainingStrokes.add(null);
-          }
-          currentStroke.clear();
-        }
-      }
-    }
-    if (currentStroke.isNotEmpty) {
-       if (lassoSelectHandwriting && currentStroke.any((p) => isPointInPolygon(p.offset, poly))) {
-          group.strokes.addAll(currentStroke);
-          group.strokes.add(null);
-       } else {
-          remainingStrokes.addAll(currentStroke);
-          remainingStrokes.add(null);
-       }
-    }
-
-    // 2. Images
-    List<PageImage> remainingImages = [];
-    if (lassoSelectImages) {
-      for (var img in pagesImages[pageIndex]) {
-        if (isRectInPolygon(Rect.fromLTWH(img.offset.dx, img.offset.dy, img.size.width, img.size.height), 0, poly)) {
-          group.images.add(img);
-        } else {
-          remainingImages.add(img);
-        }
-      }
-    } else {
-      remainingImages.addAll(pagesImages[pageIndex]);
-    }
-
-    // 3. Texts
-    List<PageText> remainingTexts = [];
-    if (lassoSelectTexts) {
-      for (var txt in pagesTexts[pageIndex]) {
-        if (isRectInPolygon(txt.rect, txt.angle, poly)) {
-          group.texts.add(txt);
-        } else {
-          remainingTexts.add(txt);
-        }
-      }
-    } else {
-      remainingTexts.addAll(pagesTexts[pageIndex]);
-    }
-
-    // 4. Shapes 
-    List<PageShape> remainingShapes = [];
-    if (lassoSelectShapes) {
-      for (var shape in pagesShapes[pageIndex]) {
-        if (isRectInPolygon(shape.rect, 0.0, poly)) {
-          group.shapes.add(shape);
-        } else {
-          remainingShapes.add(shape);
-        }
-      }
-    } else {
-      remainingShapes.addAll(pagesShapes[pageIndex]);
-    }
-
-    // 5. Tables
-    List<PageTable> remainingTables = [];
-    if (lassoSelectTables) {
-      for (var table in pagesTables[pageIndex]) {
-        if (isRectInPolygon(table.rect, 0.0, poly)) {
-          group.tables.add(table);
-        } else {
-          remainingTables.add(table);
-        }
-      }
-    } else {
-      remainingTables.addAll(pagesTables[pageIndex]);
-    }
-
-    if (group.isNotEmpty) {
-      activeSelectionGroup = group;
-      pagesPoints[pageIndex] = remainingStrokes;
-      pagesImages[pageIndex] = remainingImages;
-      pagesTexts[pageIndex] = remainingTexts;
-      pagesShapes[pageIndex] = remainingShapes;
-      pagesTables[pageIndex] = remainingTables;
-      saveStrokes(); // save intermediate state
-    }
-    
-    lassoPath = null;
-    notifyListeners();
-  }
 
   void setZoom(double scale, Size screenSize) {
-    if (screenSize.width <= 0 || screenSize.height <= 0) return;
+    if (transformationController.value.getMaxScaleOnAxis().isNaN) return;
+
+    final Size viewportSize = this.viewportSize ?? screenSize;
+    if (viewportSize.width <= 0 || viewportSize.height <= 0) return;
+
+    final double currentScale = transformationController.value.getMaxScaleOnAxis();
+    final double clampedScale = scale.clamp(0.05, 5.0);
+
+    // If practically same, skip
+    if ((currentScale - clampedScale).abs() < 0.001) return;
+
+    final Offset screenCenter = Offset(viewportSize.width / 2.0, viewportSize.height / 2.0);
+
+    // Map screen center to scene coordinate to be our focal point FOR Y AXIS ONLY!
+    // (X axis coordinate mapping is polluted by InteractiveViewer's conditional Alignment feature)
+    final Offset sceneCenter = transformationController.toScene(screenCenter);
+
+    final double virtualListViewWidth = viewportSize.width > 700.0 ? viewportSize.width : 700.0;
+    final double scaledListViewWidth = virtualListViewWidth * clampedScale;
     
-    // Use the exact viewport size saved from LayoutBuilder,
-    // fallback to provided screenSize (MediaQuery) if not set.
-    final Size actualScreenSize = viewportSize ?? screenSize;
+    double targetTx = (viewportSize.width - scaledListViewWidth) / 2.0;
 
-    // Clamp to computed minScale so content always fills viewport vertically.
-    final int pageCount =
-        document.pages.isNotEmpty ? document.pages.length : 1;
-    final double totalContentH = 16.0 + pageCount * 940.0 + 16.0;
-    final double minScaleH = actualScreenSize.height / totalContentH;
-    final double minScaleW = actualScreenSize.width / 700.0;
-    final double minAllowed =
-        (minScaleH < minScaleW ? minScaleH : minScaleW).clamp(0.05, 1.0);
-    final double clampedScale = scale.clamp(minAllowed, 20.0);
+    // Constrain the translation so we never pan the actual ListView off-screen completely
+    if (scaledListViewWidth > viewportSize.width) {
+      final double minX = viewportSize.width - scaledListViewWidth;
+      final double maxX = 0.0;
+      targetTx = targetTx.clamp(minX, maxX);
+    }
 
-    final currentScale = transformationController.value.getMaxScaleOnAxis();
-    if (clampedScale == currentScale || clampedScale <= 0) return;
+    // Y Axis zooms normally around focal point! (Because alignment.y ensures no pollution)
+    double targetTy = screenCenter.dy - (sceneCenter.dy * clampedScale);
 
-    final screenCenter = Offset(screenSize.width / 2, screenSize.height / 2);
-
-    // Calculate scene center point before transformation
-    final sceneCenter = transformationController.toScene(screenCenter);
-
-    // Zoom around the center of the screen
     Matrix4 newMatrix = Matrix4.identity()
-      ..translate(screenCenter.dx, screenCenter.dy)
-      ..scale(clampedScale)
-      ..translate(-sceneCenter.dx, -sceneCenter.dy);
+      ..translate(targetTx, targetTy)
+      ..scale(clampedScale);
 
-    // Safety check for invalid values (prevent crash)
     if (newMatrix.storage.any((v) => v.isNaN || v.isInfinite)) {
       return;
     }
 
     // Clamp vertical translation: content top must not be below viewport top
-    // (prevents gray area appearing above page 1 after zoom).
     final double ty = newMatrix.getTranslation().y;
     if (ty > 0) {
       newMatrix.setTranslationRaw(newMatrix.getTranslation().x, 0, 0);
@@ -580,6 +277,7 @@ extension CanvasDrawingLogic on CanvasController {
       // Reset ruler stroke length on stroke end
       _rulerLastSnappedPoint = null;
       activeStrokeLength = null;
+      saveStrokes();
     }
     notifyContentChanged();
   }
@@ -646,6 +344,7 @@ extension CanvasDrawingLogic on CanvasController {
           pagesPoints[pageIndex].last != null) {
         pagesPoints[pageIndex].add(null);
       }
+      saveStrokes();
       notifyContentChanged();
       return;
     }
@@ -895,196 +594,9 @@ extension CanvasDrawingLogic on CanvasController {
     }
   }
 
-  Future<void> saveCurrentPageToGallery(int index) async {
-    try {
-      if (pagesScreenshotControllers.isEmpty) return;
-      final imageBytes = await pagesScreenshotControllers[index].capture(
-        delay: const Duration(milliseconds: 10),
-      );
-      if (imageBytes != null) {
-        final directory = await getTemporaryDirectory();
-        final path = '${directory.path}/export_image_$index.png';
-        final file = await File(path).writeAsBytes(imageBytes);
-        await Gal.putImage(file.path);
-        showMessage?.call('تم الحفظ في معرض الصور بنجاح!');
-      }
-    } catch (e) {
-      showMessage?.call('خطأ في الحفظ: $e', isError: true);
-    }
-  }
 
-  Future<void> shareAsPdf({List<int>? pageIndices, Rect? sharePositionOrigin}) async {
-    try {
-      if (buildPageForExport == null) {
-        throw Exception("دالة بناء صفحات التصدير غير مهيأة.");
-      }
 
-      final pdf = pw.Document();
-      final indicesToExport = pageIndices ?? List.generate(pagesScreenshotControllers.length, (i) => i);
-      final tempController = ScreenshotController();
 
-      showMessage?.call('جاري تجهيز ${indicesToExport.length} صفحات للتصدير...', isError: false);
-
-      for (var index in indicesToExport) {
-        final widgetToCapture = buildPageForExport!(index);
-        final imageBytes = await tempController.captureFromWidget(
-          widgetToCapture,
-          delay: const Duration(milliseconds: 150),
-        );
-
-        if (imageBytes.isNotEmpty) {
-          final image = pw.MemoryImage(imageBytes);
-          pdf.addPage(
-            pw.Page(
-              pageFormat: PdfPageFormat.a4,
-              build: (context) => pw.Center(child: pw.Image(image)),
-            ),
-          );
-        }
-      }
-      final directory = await getTemporaryDirectory();
-      final path = '${directory.path}/${document.title}.pdf';
-      await File(path).writeAsBytes(await pdf.save());
-      
-      // On iPads, sharePositionOrigin must be provided and non-zero
-      await Share.shareXFiles(
-        [XFile(path)], 
-        text: 'مشاركة مستند: ${document.title}',
-        sharePositionOrigin: sharePositionOrigin ?? const Rect.fromLTWH(0, 0, 100, 100),
-      );
-    } catch (e) {
-      showMessage?.call('خطأ في التصدير: $e', isError: true);
-    }
-  }
-
-  void toggleGrid() {
-    if (pageTemplates.isEmpty) return;
-    CanvasBackgroundType cbg = pageTemplates[currentPageIndex].type;
-    if (cbg == CanvasBackgroundType.blank || cbg == CanvasBackgroundType.custom) {
-      cbg = CanvasBackgroundType.ruled_college;
-    } else if (cbg == CanvasBackgroundType.ruled_college || cbg == CanvasBackgroundType.ruled_narrow) {
-      cbg = CanvasBackgroundType.grid;
-    } else {
-      cbg = CanvasBackgroundType.blank;
-    }
-    pageTemplates[currentPageIndex] = pageTemplates[currentPageIndex].copyWith(type: cbg);
-    notifyListeners();
-  }
-
-  void updateAudioIndices(int oldIndex, int newIndex) {
-    if (oldIndex == newIndex) return;
-
-    int? mapIndex(int? current) {
-      if (current == null) return null;
-      if (current == oldIndex) return newIndex;
-      if (oldIndex < newIndex) {
-        if (current > oldIndex && current <= newIndex) return current - 1;
-      } else {
-        if (current >= newIndex && current < oldIndex) return current + 1;
-      }
-      return current;
-    }
-
-    // 1. Update current index if needed
-    audioCtrl.currentAudioIndex = mapIndex(audioCtrl.currentAudioIndex);
-
-    // 2. Update all canvas elements across all pages
-    for (int p = 0; p < pagesPoints.length; p++) {
-      // 1. Points
-      pagesPoints[p] = pagesPoints[p].map((pt) {
-        if (pt == null || pt.audioIndex == null) return pt;
-        final mapped = mapIndex(pt.audioIndex);
-        if (mapped == pt.audioIndex) return pt;
-        return DrawingPoint(
-          pt.offset,
-          pt.paint,
-          timestamp: pt.timestamp,
-          audioIndex: mapped,
-        );
-      }).toList();
-
-      // 2. Texts
-      pagesTexts[p] = pagesTexts[p].map((t) {
-        if (t.audioIndex == null) return t;
-        final mapped = mapIndex(t.audioIndex);
-        if (mapped == t.audioIndex) return t;
-        return PageText(
-          id: t.id,
-          text: t.text,
-          rect: t.rect,
-          color: t.color,
-          fontSize: t.fontSize,
-          fontFamily: t.fontFamily,
-          textAlign: t.textAlign,
-          isBold: t.isBold,
-          isItalic: t.isItalic,
-          isUnderline: t.isUnderline,
-          isStrikethrough: t.isStrikethrough,
-          fillColor: t.fillColor,
-          borderColor: t.borderColor,
-          borderWidth: t.borderWidth,
-          isEditing: t.isEditing,
-          timestamp: t.timestamp,
-          audioIndex: mapped,
-        );
-      }).toList();
-
-      // 3. Shapes
-      pagesShapes[p] = pagesShapes[p].map((s) {
-        if (s.audioIndex == null) return s;
-        final mapped = mapIndex(s.audioIndex);
-        if (mapped == s.audioIndex) return s;
-        return PageShape(
-          id: s.id,
-          type: s.type,
-          rect: s.rect,
-          borderWidth: s.borderWidth,
-          borderColor: s.borderColor,
-          fillColor: s.fillColor,
-          lineType: s.lineType,
-          timestamp: s.timestamp,
-          audioIndex: mapped,
-        );
-      }).toList();
-
-      // 4. Images
-      pagesImages[p] = pagesImages[p].map((img) {
-        if (img.audioIndex == null) return img;
-        final mapped = mapIndex(img.audioIndex);
-        if (mapped == img.audioIndex) return img;
-        return PageImage(
-          img.path,
-          img.offset,
-          img.size,
-          timestamp: img.timestamp,
-          audioIndex: mapped,
-        );
-      }).toList();
-
-      // 5. Tables
-      pagesTables[p] = pagesTables[p].map((tbl) {
-        if (tbl.audioIndex == null) return tbl;
-        final mapped = mapIndex(tbl.audioIndex);
-        if (mapped == tbl.audioIndex) return tbl;
-        return PageTable(
-          id: tbl.id,
-          rect: tbl.rect,
-          rows: tbl.rows,
-          columns: tbl.columns,
-          hasHeaderRow: tbl.hasHeaderRow,
-          hasHeaderCol: tbl.hasHeaderCol,
-          borderWidth: tbl.borderWidth,
-          borderColor: tbl.borderColor,
-          fillColor: tbl.fillColor,
-          cellTexts: tbl.cellTexts,
-          cellStyles: tbl.cellStyles,
-          timestamp: tbl.timestamp,
-          audioIndex: mapped,
-        );
-      }).toList();
-    }
-    notifyListeners();
-  }
 
   void addLaserPoint(int pageIndex, Offset? localPoint) {
     if (pageIndex < 0 || pageIndex >= activeLaserStrokes.length) return;

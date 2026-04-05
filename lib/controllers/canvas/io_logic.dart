@@ -207,22 +207,42 @@ extension CanvasIOLogic on CanvasController {
     for (int i = 0; i < pageCount; i++) {
       List<DrawingPoint?> currentPagePoints = [];
       for (var strokeData in document.pages[i]) {
-        if (strokeData.isEmpty) {
-          currentPagePoints.add(null);
-          continue;
+        try {
+          if (strokeData.isEmpty) {
+            currentPagePoints.add(null);
+            continue;
+          }
+          
+          double parseDouble(dynamic val, double def) {
+            if (val == null) return def;
+            if (val is num) return val.toDouble();
+            if (val is String) return double.tryParse(val) ?? def;
+            return def;
+          }
+          int parseInt(dynamic val, int def) {
+            if (val == null) return def;
+            if (val is num) return val.toInt();
+            if (val is String) return int.tryParse(val) ?? def;
+            return def;
+          }
+
+          int rawColor = parseInt(strokeData['color'], 0xFF000000);
+
+          currentPagePoints.add(
+            DrawingPoint(
+              Offset(parseDouble(strokeData['dx'], 0.0), parseDouble(strokeData['dy'], 0.0)),
+              Paint()
+                ..color = Color(rawColor)
+                ..isAntiAlias = true
+                ..strokeWidth = parseDouble(strokeData['width'], 5.0)
+                ..strokeCap = StrokeCap.round,
+              timestamp: parseInt(strokeData['timestamp'], 0),
+              audioIndex: strokeData['audioIndex'] != null ? parseInt(strokeData['audioIndex'], 0) : null,
+            ),
+          );
+        } catch (e) {
+          debugPrint('Error parsing stroke point: $e');
         }
-        currentPagePoints.add(
-          DrawingPoint(
-            Offset(strokeData['dx'], strokeData['dy']),
-            Paint()
-              ..color = Color(strokeData['color'])
-              ..isAntiAlias = true
-              ..strokeWidth = (strokeData['width'] ?? 5.0).toDouble()
-              ..strokeCap = StrokeCap.round,
-            timestamp: (strokeData['timestamp'] ?? 0) as int,
-            audioIndex: strokeData['audioIndex'] as int?,
-          ),
-        );
       }
       pagesPoints.add(currentPagePoints);
       redoPagesPoints.add([]);
@@ -231,8 +251,12 @@ extension CanvasIOLogic on CanvasController {
       List<PageImage> currentImgs = [];
       if (i < document.pageImages.length) {
         for (var imgData in document.pageImages[i]) {
-          if (imgData.isNotEmpty && File(imgData['path']).existsSync()) {
-            currentImgs.add(PageImage.fromMap(imgData));
+          try {
+            if (imgData.isNotEmpty && File(imgData['path']).existsSync()) {
+              currentImgs.add(PageImage.fromMap(imgData));
+            }
+          } catch (e) {
+            debugPrint('Error parsing image: $e');
           }
         }
       }
@@ -241,8 +265,12 @@ extension CanvasIOLogic on CanvasController {
       List<PageText> currentTxts = [];
       if (i < document.pageTexts.length) {
         for (var txtData in document.pageTexts[i]) {
-          if (txtData.isNotEmpty) {
-            currentTxts.add(PageText.fromMap(txtData));
+          try {
+            if (txtData.isNotEmpty) {
+              currentTxts.add(PageText.fromMap(txtData));
+            }
+          } catch (e) {
+            debugPrint('Error parsing text: $e');
           }
         }
       }
@@ -251,8 +279,12 @@ extension CanvasIOLogic on CanvasController {
       List<PageShape> currentShps = [];
       if (i < document.pageShapes.length) {
         for (var shpData in document.pageShapes[i]) {
-          if (shpData.isNotEmpty) {
-            currentShps.add(PageShape.fromMap(shpData));
+          try {
+            if (shpData.isNotEmpty) {
+              currentShps.add(PageShape.fromMap(shpData));
+            }
+          } catch (e) {
+            debugPrint('Error parsing shape: $e');
           }
         }
       }
@@ -261,8 +293,12 @@ extension CanvasIOLogic on CanvasController {
       List<PageTable> currentTbls = [];
       if (i < document.pageTables.length) {
         for (var tblData in document.pageTables[i]) {
-          if (tblData.isNotEmpty) {
-            currentTbls.add(PageTable.fromMap(tblData));
+          try {
+            if (tblData.isNotEmpty) {
+              currentTbls.add(PageTable.fromMap(tblData));
+            }
+          } catch (e) {
+            debugPrint('Error parsing table: $e');
           }
         }
       }

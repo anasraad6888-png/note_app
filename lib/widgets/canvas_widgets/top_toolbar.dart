@@ -21,14 +21,72 @@ class CanvasTopToolbar extends StatelessWidget {
     this.onClose,
   });
 
-  Widget _buildIsland(List<Widget> children, bool isDarkMode) {
+  // ── Colour helpers ──────────────────────────────────────────────────────────
+  Color get _fg => canvasCtrl.isDarkMode ? Colors.white : Colors.black87;
+  Color get _accent => const Color(0xFFFF7F6A);
+
+  // ── Thin vertical divider ──────────────────────────────────────────────────
+  Widget _divider() => Container(
+        width: 1,
+        height: 16,
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        color: (canvasCtrl.isDarkMode ? Colors.white : Colors.black).withAlpha(25),
+      );
+
+  // ── Single icon button — compact 36×36 hit area ───────────────────────────
+  Widget _btn({
+    required IconData icon,
+    required String tooltip,
+    VoidCallback? onTap,
+    Color? color,
+    bool active = false,
+  }) {
+    final c = color ?? _fg;
+    return Tooltip(
+      message: tooltip,
+      preferBelow: true,
+      child: GestureDetector(
+        onTap: onTap,
+        child: MouseRegion(
+          cursor: onTap != null
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.basic,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: active
+                  ? _accent.withAlpha(30)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              icon,
+              size: 17,
+              color: onTap == null
+                  ? c.withAlpha(60)
+                  : active
+                      ? _accent
+                      : c.withAlpha(200),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Small "pill" group: glass background ──────────────────────────────────
+  Widget _group(List<Widget> children) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
       decoration: BoxDecoration(
-        color: (isDarkMode ? Colors.black : Colors.white).withAlpha(100),
-        borderRadius: BorderRadius.circular(24),
+        color: (canvasCtrl.isDarkMode ? Colors.white : Colors.black)
+            .withAlpha(canvasCtrl.isDarkMode ? 12 : 7),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: (isDarkMode ? Colors.white : Colors.black).withAlpha(20),
+          color: (canvasCtrl.isDarkMode ? Colors.white : Colors.black)
+              .withAlpha(18),
           width: 0.5,
         ),
       ),
@@ -36,24 +94,56 @@ class CanvasTopToolbar extends StatelessWidget {
     );
   }
 
-  Widget _buildToolButton(
-    IconData icon,
-    String tooltip,
-    Color color,
-    VoidCallback? onPressed,
-  ) {
-    return IconButton(
-      icon: Icon(
-        icon,
-        color: onPressed == null ? color.withAlpha(100) : color,
-        size: 20,
+  // ── Document title chip ───────────────────────────────────────────────────
+  Widget _titleChip(BuildContext context) {
+    return GestureDetector(
+      onTap: () => CanvasDialogs.showEditTitleDialog(
+        context: context,
+        document: canvasCtrl.document,
+        isDarkMode: canvasCtrl.isDarkMode,
+        onSave: () => canvasCtrl.saveStrokes(),
       ),
-      tooltip: tooltip,
-      onPressed: onPressed,
-      splashRadius: 20,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: (canvasCtrl.isDarkMode ? Colors.white : Colors.black)
+                .withAlpha(canvasCtrl.isDarkMode ? 15 : 8),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 160),
+                child: Text(
+                  canvasCtrl.document.title,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    letterSpacing: -0.2,
+                    color: canvasCtrl.isDarkMode ? Colors.white : Colors.black87,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 5),
+              Icon(
+                LucideIcons.edit2,
+                size: 11,
+                color: canvasCtrl.isDarkMode
+                    ? Colors.white38
+                    : Colors.black38,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
+  // ── Position popup ─────────────────────────────────────────────────────────
   void _showPositionPopover(BuildContext btnContext) {
     bool isDark = canvasCtrl.isDarkMode;
 
@@ -68,15 +158,13 @@ class CanvasTopToolbar extends StatelessWidget {
           builder: (context, setState) {
             Widget buildToolbarPill(ToolbarPosition pos, bool isHorizontal) {
               final isActive = canvasCtrl.toolbarPosition == pos;
-              
-              final activeColor = const Color(0xFFFF7F6A);
+              final activeColor = _accent;
               final inactiveColor = isDark ? Colors.white12 : Colors.black12;
 
               return GestureDetector(
                 onTap: () {
                   if (!isActive) {
                     canvasCtrl.updateToolbarPosition(pos);
-                    // Update local state to animate the glowing UI instantaneously
                     if (context.mounted) setState(() {});
                   }
                 },
@@ -90,19 +178,21 @@ class CanvasTopToolbar extends StatelessWidget {
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: isActive ? activeColor.withAlpha(120) : Colors.transparent,
+                          color: isActive
+                              ? activeColor.withAlpha(120)
+                              : Colors.transparent,
                           blurRadius: isActive ? 10 : 0,
                           spreadRadius: isActive ? 2 : 0,
                         )
                       ],
-                      border: Border.all(
-                        color: isActive ? Colors.white.withAlpha(50) : Colors.transparent,
-                        width: 1,
-                      ),
                     ),
-                    margin: isHorizontal 
-                      ? EdgeInsets.symmetric(horizontal: isActive ? 0 : 16, vertical: isActive ? 0 : 5)
-                      : EdgeInsets.symmetric(vertical: isActive ? 0 : 16, horizontal: isActive ? 0 : 5),
+                    margin: isHorizontal
+                        ? EdgeInsets.symmetric(
+                            horizontal: isActive ? 0 : 16,
+                            vertical: isActive ? 0 : 5)
+                        : EdgeInsets.symmetric(
+                            vertical: isActive ? 0 : 16,
+                            horizontal: isActive ? 0 : 5),
                   ),
                 ),
               );
@@ -116,67 +206,77 @@ class CanvasTopToolbar extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(LucideIcons.move, size: 18, color: isDark ? Colors.white70 : Colors.black87),
+                      Icon(LucideIcons.move,
+                          size: 16,
+                          color: isDark ? Colors.white70 : Colors.black87),
                       const SizedBox(width: 8),
                       Text(
                         'إرساء شريط الأدوات',
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: 15,
                           fontWeight: FontWeight.w700,
                           color: isDark ? Colors.white : Colors.black87,
-                          letterSpacing: 0.5,
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 24),
-                  
-                  // Interactive iPad Simulator
                   SizedBox(
                     width: 180,
                     height: 140,
                     child: Stack(
                       children: [
-                        // The Screen Outline
                         Positioned.fill(
                           child: Container(
                             margin: const EdgeInsets.all(22),
                             decoration: BoxDecoration(
                               color: isDark ? Colors.black26 : Colors.white,
                               borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withAlpha(isDark ? 60 : 10),
-                                  blurRadius: 20,
-                                  offset: const Offset(0, 10),
-                                )
-                              ],
-                              border: Border.all(color: isDark ? Colors.white12 : Colors.black12, width: 1.5),
+                              border: Border.all(
+                                color: isDark
+                                    ? Colors.white12
+                                    : Colors.black12,
+                                width: 1.5,
+                              ),
                             ),
                             child: Center(
-                              child: Icon(LucideIcons.penTool, color: isDark ? Colors.white24 : Colors.black26, size: 32),
+                              child: Icon(LucideIcons.penTool,
+                                  color: isDark
+                                      ? Colors.white24
+                                      : Colors.black26,
+                                  size: 32),
                             ),
                           ),
                         ),
-                        // Top Toolbar Dock
                         Positioned(
-                          top: 0, left: 18, right: 18, height: 16,
+                          top: 0,
+                          left: 18,
+                          right: 18,
+                          height: 16,
                           child: buildToolbarPill(ToolbarPosition.top, true),
                         ),
-                        // Bottom Toolbar Dock
                         Positioned(
-                          bottom: 0, left: 18, right: 18, height: 16,
-                          child: buildToolbarPill(ToolbarPosition.bottom, true),
+                          bottom: 0,
+                          left: 18,
+                          right: 18,
+                          height: 16,
+                          child:
+                              buildToolbarPill(ToolbarPosition.bottom, true),
                         ),
-                        // Left Toolbar Dock
                         Positioned(
-                          left: 0, top: 18, bottom: 18, width: 16,
+                          left: 0,
+                          top: 18,
+                          bottom: 18,
+                          width: 16,
                           child: buildToolbarPill(ToolbarPosition.left, false),
                         ),
-                        // Right Toolbar Dock
                         Positioned(
-                          right: 0, top: 18, bottom: 18, width: 16,
-                          child: buildToolbarPill(ToolbarPosition.right, false),
+                          right: 0,
+                          top: 18,
+                          bottom: 18,
+                          width: 16,
+                          child:
+                              buildToolbarPill(ToolbarPosition.right, false),
                         ),
                       ],
                     ),
@@ -190,16 +290,20 @@ class CanvasTopToolbar extends StatelessWidget {
     );
   }
 
+  // ── Main build ─────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Positioned(
-      top: 20,
-      left: 20,
-      right: 20,
+      top: 14,
+      left: 14,
+      right: 14,
       child: SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
             DragTarget<String>(
               onWillAcceptWithDetails: (details) =>
                   details.data == 'dock_tools' &&
@@ -210,472 +314,242 @@ class CanvasTopToolbar extends StatelessWidget {
               },
               builder: (context, candidateData, rejectedData) {
                 bool isTargeted = candidateData.isNotEmpty;
-                return ClipRRect(
-                  borderRadius: BorderRadius.circular(30),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color:
-                            (canvasCtrl.isDarkMode
-                                    ? Colors.grey.shade900
-                                    : Colors.white)
-                                .withAlpha(isTargeted ? 200 : 160),
-                        borderRadius: BorderRadius.circular(30),
-                        border: Border.all(
-                          color:
-                              (canvasCtrl.isDarkMode
-                                      ? Colors.white
-                                      : Colors.black)
-                                  .withAlpha(30),
-                          width: 1,
+                return IntrinsicWidth(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 280),
+                        // ── Compact vertical padding ──────────────────────────
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: (canvasCtrl.isDarkMode
+                                      ? const Color(0xFF1C1C1E)
+                                      : Colors.white)
+                                  .withAlpha(isTargeted ? 220 : 185),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: (canvasCtrl.isDarkMode
+                                    ? Colors.white
+                                    : Colors.black)
+                                .withAlpha(22),
+                            width: 0.8,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black
+                                  .withAlpha(canvasCtrl.isDarkMode ? 50 : 18),
+                              blurRadius: 24,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withAlpha(
-                              canvasCtrl.isDarkMode ? 40 : 15,
-                            ),
-                            blurRadius: 20,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Main Toolbar Row
-                          SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                // Island 1: Navigation & Title
-                                _buildIsland([
-                                  if (onClose != null ||
-                                      canvasCtrl.onDocumentClose != null) ...[
-                                    _buildToolButton(
-                                      LucideIcons.arrowLeft,
-                                      'رجوع',
-                                      canvasCtrl.isDarkMode
-                                          ? Colors.white70
-                                          : Colors.black87,
-                                      onClose ?? canvasCtrl.onDocumentClose,
-                                    ),
-                                    Container(
-                                      width: 1,
-                                      height: 20,
-                                      margin: const EdgeInsets.symmetric(
-                                        horizontal: 4,
-                                      ),
-                                      color:
-                                          (canvasCtrl.isDarkMode
-                                                  ? Colors.white
-                                                  : Colors.black)
-                                              .withAlpha(30),
-                                    ),
-                                  ],
-                                  InkWell(
-                                    borderRadius: BorderRadius.circular(20),
-                                    onTap: () =>
-                                        CanvasDialogs.showEditTitleDialog(
-                                          context: context,
-                                          document: canvasCtrl.document,
-                                          isDarkMode: canvasCtrl.isDarkMode,
-                                          onSave: () =>
-                                              canvasCtrl.saveStrokes(),
-                                        ),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 8,
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            canvasCtrl.document.title,
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 15,
-                                              color: canvasCtrl.isDarkMode
-                                                  ? Colors.white
-                                                  : Colors.black87,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Icon(
-                                            LucideIcons.edit2,
-                                            size: 14,
-                                            color: canvasCtrl.isDarkMode
-                                                ? Colors.white54
-                                                : Colors.black54,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ], canvasCtrl.isDarkMode),
-
-                                const SizedBox(width: 12),
-                                // Island 2: Document Actions
-                                _buildIsland([
-                                  _buildToolButton(
-                                    Icons.note_add,
-                                    'إضافة صفحة',
-                                    const Color(0xFFFF7F6A),
-                                    () => canvasCtrl.addPage(),
-                                  ),
-                                  _buildToolButton(
-                                    LucideIcons.share2,
-                                    'مشاركة',
-                                    const Color(0xFFFF7F6A),
-                                    () => CanvasDialogs.showExportDialog(
-                                      context: context,
-                                      isDarkMode: canvasCtrl.isDarkMode,
-                                      onExportImage: () =>
-                                          canvasCtrl.saveCurrentPageToGallery(
-                                            canvasCtrl.currentPageIndex,
-                                          ),
-                                      onExportPdf: canvasCtrl.shareAsPdf,
-                                    ),
-                                  ),
-                                  Builder(
-                                    builder: (btnContext) => _buildToolButton(
-                                      LucideIcons.fileText,
-                                      'إعدادات الصفحة',
-                                      Colors.blueGrey,
-                                      () =>
-                                          CanvasDialogs.showPageSettingsDialog(
-                                            context: btnContext,
-                                            canvasCtrl: canvasCtrl,
-                                            isTopHalf: true,
-                                          ),
-                                    ),
-                                  ),
-                                  _buildToolButton(
-                                    canvasCtrl.isDarkMode
-                                        ? LucideIcons.sun
-                                        : LucideIcons.moon,
-                                    'الوضع الليلي',
-                                    canvasCtrl.isDarkMode
-                                        ? Colors.amber
-                                        : Colors.blueGrey,
-                                    canvasCtrl.toggleDarkMode,
-                                  ),
-                                  _buildToolButton(
-                                    LucideIcons.mic,
-                                    'التسجيل المتزامن',
-                                    (canvasCtrl
-                                                .document
-                                                .audioPaths
-                                                .isNotEmpty ||
-                                            audioCtrl.isRecording)
-                                        ? Colors.redAccent
-                                        : Colors.blueGrey,
-                                    audioCtrl.toggleAudioBar,
-                                  ),
-                                  _buildToolButton(
-                                    LucideIcons.layoutGrid,
-                                    'عرض وتصنيف الصفحات',
-                                    Colors.blueGrey,
-                                    canvasCtrl.onShowPagesGridDialog,
-                                  ),
-                                  Builder(
-                                    builder: (btnCtx) => _buildToolButton(
-                                      LucideIcons.move,
-                                      'إرساء شريط الأدوات',
-                                      const Color(0xFFFF7F6A),
-                                      () => _showPositionPopover(btnCtx),
-                                    ),
-                                  ),
-                                ], canvasCtrl.isDarkMode),
-
-                                const SizedBox(width: 12),
-                                // Island 3: History & Clipboard
-                                _buildIsland([
-                                  if (canvasCtrl.clipboardGroup != null)
-                                    _buildToolButton(
-                                      LucideIcons.clipboardPaste,
-                                      'لصق',
-                                      const Color(0xFFFF7F6A),
-                                      () => canvasCtrl.pasteClipboard(
-                                        canvasCtrl.currentPageIndex,
-                                        Offset(
-                                          MediaQuery.of(context).size.width / 2,
-                                          MediaQuery.of(context).size.height /
-                                              2,
-                                        ),
-                                      ),
-                                    ),
-                                  _buildToolButton(
-                                    LucideIcons.undo,
-                                    'تراجع',
-                                    Colors.blue,
-                                    canvasCtrl.canUndo
-                                        ? () => canvasCtrl.undo(
-                                            canvasCtrl.currentPageIndex,
-                                          )
-                                        : null,
-                                  ),
-                                  _buildToolButton(
-                                    LucideIcons.redo,
-                                    'إعادة',
-                                    Colors.blue,
-                                    canvasCtrl.canRedo
-                                        ? () => canvasCtrl.redo(
-                                            canvasCtrl.currentPageIndex,
-                                          )
-                                        : null,
-                                  ),
-                                ], canvasCtrl.isDarkMode),
-                              ],
-                            ),
-                          ),
-
-                          // Docked Drawing Tools
-                          if (canvasCtrl.toolbarPosition ==
-                              ToolbarPosition.top) ...[
-                            const SizedBox(height: 12),
-                            Draggable<String>(
-                              data: 'dock_tools',
-                              feedback: Material(
-                                color: Colors.transparent,
-                                child: SizedBox(
-                                  width: MediaQuery.of(context).size.width - 40,
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.center,
-                                    children: [
-                                      Opacity(
-                                        opacity: 0.8,
-                                        child: Container(
-                                          padding: const EdgeInsets.all(4),
-                                          decoration: BoxDecoration(
-                                            color:
-                                                (canvasCtrl.isDarkMode
-                                                        ? Colors.grey.shade900
-                                                        : Colors.white)
-                                                    .withAlpha(180),
-                                            borderRadius: BorderRadius.circular(
-                                              24,
-                                            ),
-                                            border: Border.all(
-                                              color: const Color(0xFFFF7F6A),
-                                              width: 2,
-                                            ),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.black.withAlpha(
-                                                  20,
-                                                ),
-                                                blurRadius: 12,
-                                                offset: const Offset(0, 4),
-                                              ),
-                                            ],
-                                          ),
-                                          child: IntrinsicWidth(
-                                            child: Column(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                DrawingToolsRow(
-                                                  canvasCtrl: canvasCtrl,
-                                                  audioCtrl: audioCtrl,
-                                                  direction: Axis.horizontal,
-                                                ),
-                                                if (canvasCtrl
-                                                        .isSettingsMagnetActive &&
-                                                    (canvasCtrl
-                                                            .showPenSettingsRow ||
-                                                        canvasCtrl
-                                                            .showHighlighterSettingsRow ||
-                                                        canvasCtrl
-                                                            .showLaserSettingsRow ||
-                                                        canvasCtrl
-                                                            .showTextSettingsRow ||
-                                                        canvasCtrl
-                                                            .showEraserSettingsRow ||
-                                                        canvasCtrl
-                                                            .showLassoSettingsRow ||
-                                                        canvasCtrl
-                                                            .showAddSettingsRow)) ...[
-                                                  const SizedBox(height: 8),
-                                                  Container(
-                                                    padding:
-                                                        const EdgeInsets.all(8),
-                                                    decoration: BoxDecoration(
-                                                      color:
-                                                          canvasCtrl.isDarkMode
-                                                          ? Colors.grey.shade900
-                                                                .withAlpha(240)
-                                                          : Colors.white
-                                                                .withAlpha(240),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            16,
-                                                          ),
-                                                      border: Border.all(
-                                                        color:
-                                                            canvasCtrl
-                                                                .isDarkMode
-                                                            ? Colors.white10
-                                                            : Colors.black12,
-                                                      ),
-                                                    ),
-                                                    child: SingleChildScrollView(
-                                                      scrollDirection:
-                                                          Axis.horizontal,
-                                                      child:
-                                                          DrawingToolsRow.buildSettingsRow(
-                                                            canvasCtrl,
-                                                            context,
-                                                          ),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              childWhenDragging: Opacity(
-                                opacity: 0.0,
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Flexible(
-                                          fit: FlexFit.loose,
-                                          child: DrawingToolsRow(
-                                            canvasCtrl: canvasCtrl,
-                                            audioCtrl: audioCtrl,
-                                            direction: Axis.horizontal,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    if (canvasCtrl.isSettingsMagnetActive &&
-                                        (canvasCtrl.showPenSettingsRow ||
-                                            canvasCtrl
-                                                .showHighlighterSettingsRow ||
-                                            canvasCtrl.showLaserSettingsRow ||
-                                            canvasCtrl.showTextSettingsRow ||
-                                            canvasCtrl.showEraserSettingsRow ||
-                                            canvasCtrl.showLassoSettingsRow ||
-                                            canvasCtrl.showAddSettingsRow)) ...[
-                                      const SizedBox(height: 8),
-                                      Container(
-                                        padding: const EdgeInsets.all(8),
-                                        decoration: BoxDecoration(
-                                          color: canvasCtrl.isDarkMode
-                                              ? Colors.grey.shade900.withAlpha(
-                                                  240,
-                                                )
-                                              : Colors.white.withAlpha(240),
-                                          borderRadius: BorderRadius.circular(
-                                            16,
-                                          ),
-                                          border: Border.all(
-                                            color: canvasCtrl.isDarkMode
-                                                ? Colors.white10
-                                                : Colors.black12,
-                                          ),
-                                        ),
-                                        child: SingleChildScrollView(
-                                          scrollDirection: Axis.horizontal,
-                                          child:
-                                              DrawingToolsRow.buildSettingsRow(
-                                                canvasCtrl,
-                                                context,
-                                              ),
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                              onDragStarted: () =>
-                                  canvasCtrl.setDraggingPalette(true),
-                              onDragEnd: (_) =>
-                                  canvasCtrl.setDraggingPalette(false),
-                              onDraggableCanceled: (_, _) =>
-                                  canvasCtrl.setDraggingPalette(false),
-                              child: Column(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // ── Main toolbar row ─────────────────────────────
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Flexible(
-                                        fit: FlexFit.loose,
-                                        child: DrawingToolsRow(
+                                  // Group 1 — Back + Title
+                                  _group([
+                                    if (onClose != null ||
+                                        canvasCtrl.onDocumentClose != null) ...[
+                                      _btn(
+                                        icon: LucideIcons.arrowLeft,
+                                        tooltip: 'رجوع',
+                                        onTap: onClose ??
+                                            canvasCtrl.onDocumentClose,
+                                      ),
+                                      _divider(),
+                                    ],
+                                    _titleChip(context),
+                                  ]),
+
+                                  const SizedBox(width: 8),
+
+                                  // Group 2 — Document actions
+                                  _group([
+                                    _btn(
+                                      icon: LucideIcons.filePlus2,
+                                      tooltip: 'إضافة صفحة',
+                                      color: _accent,
+                                      onTap: () => canvasCtrl.addPage(),
+                                    ),
+                                    _btn(
+                                      icon: LucideIcons.share2,
+                                      tooltip: 'مشاركة',
+                                      color: _accent,
+                                      onTap: () => CanvasDialogs.showExportDialog(
+                                        context: context,
+                                        isDarkMode: canvasCtrl.isDarkMode,
+                                        onExportImage: () =>
+                                            canvasCtrl.saveCurrentPageToGallery(
+                                                canvasCtrl.currentPageIndex),
+                                        onExportPdf: canvasCtrl.shareAsPdf,
+                                      ),
+                                    ),
+                                    _divider(),
+                                    Builder(
+                                      builder: (btnCtx) => _btn(
+                                        icon: LucideIcons.fileText,
+                                        tooltip: 'إعدادات الصفحة',
+                                        onTap: () =>
+                                            CanvasDialogs.showPageSettingsDialog(
+                                          context: btnCtx,
                                           canvasCtrl: canvasCtrl,
-                                          audioCtrl: audioCtrl,
-                                          direction: Axis.horizontal,
+                                          isTopHalf: true,
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                  if (canvasCtrl.isSettingsMagnetActive &&
-                                      (canvasCtrl.showPenSettingsRow ||
-                                          canvasCtrl
-                                              .showHighlighterSettingsRow ||
-                                          canvasCtrl.showLaserSettingsRow ||
-                                          canvasCtrl.showTextSettingsRow ||
-                                          canvasCtrl.showEraserSettingsRow ||
-                                          canvasCtrl.showLassoSettingsRow ||
-                                          canvasCtrl.showAddSettingsRow)) ...[
-                                    const SizedBox(height: 8),
-                                    Container(
-                                          key: canvasCtrl.dockedSettingsKey,
-                                          padding: const EdgeInsets.all(8),
-                                          decoration: BoxDecoration(
-                                            color: canvasCtrl.isDarkMode
-                                                ? Colors.grey.shade900
-                                                      .withAlpha(240)
-                                                : Colors.white.withAlpha(240),
-                                            borderRadius: BorderRadius.circular(
-                                              16,
-                                            ),
-                                            border: Border.all(
-                                              color: canvasCtrl.isDarkMode
-                                                  ? Colors.white10
-                                                  : Colors.black12,
-                                            ),
-                                          ),
-                                          child: SingleChildScrollView(
-                                            scrollDirection: Axis.horizontal,
-                                            child:
-                                                DrawingToolsRow.buildSettingsRow(
-                                                  canvasCtrl,
-                                                  context,
-                                                ),
-                                          ),
-                                        )
-                                        .animate()
-                                        .fade(duration: 200.ms)
-                                        .scale(
-                                          begin: const Offset(0.9, 0.9),
-                                          curve: Curves.easeOut,
+                                    ),
+                                    _btn(
+                                      icon: canvasCtrl.isDarkMode
+                                          ? LucideIcons.sun
+                                          : LucideIcons.moon,
+                                      tooltip: 'الوضع الليلي',
+                                      color: canvasCtrl.isDarkMode
+                                          ? Colors.amber
+                                          : _fg,
+                                      onTap: canvasCtrl.toggleDarkMode,
+                                    ),
+                                    _divider(),
+                                    // Mic — with recording animation
+                                    Builder(builder: (btnCtx) {
+                                      Widget mic = CompositedTransformTarget(
+                                        link: audioCtrl.audioWindowLink,
+                                        child: _btn(
+                                          icon: LucideIcons.mic,
+                                          tooltip: 'التسجيل المتزامن',
+                                          active: audioCtrl.isRecording,
+                                          color: audioCtrl.isRecording
+                                              ? Colors.redAccent
+                                              : _fg,
+                                          onTap: () =>
+                                              audioCtrl.toggleAudioBar(),
                                         ),
-                                  ],
+                                      );
+                                      if (audioCtrl.isRecording) {
+                                        mic = mic
+                                            .animate(
+                                                onPlay: (c) =>
+                                                    c.repeat(reverse: true))
+                                            .tint(
+                                                color: Colors.redAccent,
+                                                end: 1.0,
+                                                duration: 1200.ms,
+                                                curve: Curves.easeInOut);
+                                      } else {
+                                        mic = mic
+                                            .animate(
+                                                target: (audioCtrl.isPlaying &&
+                                                        !audioCtrl.isAudioBarVisible)
+                                                    ? 1.0
+                                                    : 0.0)
+                                            .tint(
+                                                color: _accent,
+                                                end: 1.0,
+                                                duration: 400.ms);
+                                      }
+                                      return mic;
+                                    }),
+                                    _btn(
+                                      icon: LucideIcons.layoutGrid,
+                                      tooltip: 'عرض الصفحات',
+                                      onTap: canvasCtrl.onShowPagesGridDialog,
+                                    ),
+                                    _divider(),
+                                    Builder(
+                                      builder: (btnCtx) => _btn(
+                                        icon: LucideIcons.move,
+                                        tooltip: 'إرساء شريط الأدوات',
+                                        color: _accent,
+                                        onTap: () =>
+                                            _showPositionPopover(btnCtx),
+                                      ),
+                                    ),
+                                    _btn(
+                                      icon: LucideIcons.zoomIn,
+                                      tooltip: 'التحكم بالتكبير',
+                                      active: canvasCtrl.isZoomSliderVisible,
+                                      onTap: () {
+                                        canvasCtrl.toggleZoomSlider();
+                                        canvasCtrl.notifyListeners();
+                                      },
+                                    ),
+                                  ]),
+
+                                  const SizedBox(width: 8),
+
+                                  // Group 3 — Undo / Redo + paste
+                                  _group([
+                                    if (canvasCtrl.clipboardGroup != null)
+                                      _btn(
+                                        icon: LucideIcons.clipboardPaste,
+                                        tooltip: 'لصق',
+                                        color: _accent,
+                                        onTap: () => canvasCtrl.pasteClipboard(
+                                          canvasCtrl.currentPageIndex,
+                                          Offset(
+                                            MediaQuery.of(context).size.width /
+                                                2,
+                                            MediaQuery.of(context).size.height /
+                                                2,
+                                          ),
+                                        ),
+                                      ),
+                                    _btn(
+                                      icon: LucideIcons.undo,
+                                      tooltip: 'تراجع',
+                                      color: const Color(0xFF5B8DEF),
+                                      onTap: canvasCtrl.canUndo
+                                          ? () => canvasCtrl
+                                              .undo(canvasCtrl.currentPageIndex)
+                                          : null,
+                                    ),
+                                    _btn(
+                                      icon: LucideIcons.redo,
+                                      tooltip: 'إعادة',
+                                      color: const Color(0xFF5B8DEF),
+                                      onTap: canvasCtrl.canRedo
+                                          ? () => canvasCtrl
+                                              .redo(canvasCtrl.currentPageIndex)
+                                          : null,
+                                    ),
+                                  ]),
                                 ],
                               ),
                             ),
+
+                            // ── Docked drawing tools (when toolbar at top) ───
+                            if (canvasCtrl.toolbarPosition ==
+                                ToolbarPosition.top) ...[
+                              const SizedBox(height: 8),
+                              Draggable<String>(
+                                data: 'dock_tools',
+                                feedback: Material(
+                                  color: Colors.transparent,
+                                  child: _buildDockedTools(context,
+                                      opacity: 0.8),
+                                ),
+                                childWhenDragging: Opacity(
+                                  opacity: 0.0,
+                                  child: _buildDockedTools(context),
+                                ),
+                                onDragStarted: () =>
+                                    canvasCtrl.setDraggingPalette(true),
+                                onDragEnd: (_) =>
+                                    canvasCtrl.setDraggingPalette(false),
+                                onDraggableCanceled: (_, _) =>
+                                    canvasCtrl.setDraggingPalette(false),
+                                child: _buildDockedTools(context),
+                              ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
                     ),
                   ),
@@ -683,8 +557,60 @@ class CanvasTopToolbar extends StatelessWidget {
               },
             ),
           ],
-        ),
-      ),
+          ),   // Column
+        ),     // Align
+      ),       // SafeArea
     );
+  }
+
+  // ── Docked tools helper (DRY) ───────────────────────────────────────────────
+  Widget _buildDockedTools(BuildContext context, {double opacity = 1.0}) {
+    final bool hasSettings = canvasCtrl.isSettingsMagnetActive &&
+        (canvasCtrl.showPenSettingsRow ||
+            canvasCtrl.showHighlighterSettingsRow ||
+            canvasCtrl.showLaserSettingsRow ||
+            canvasCtrl.showTextSettingsRow ||
+            canvasCtrl.showEraserSettingsRow ||
+            canvasCtrl.showLassoSettingsRow ||
+            canvasCtrl.showAddSettingsRow);
+
+    Widget content = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // Tools row — shrink-wrapped, no Flexible/Row needed
+        DrawingToolsRow(
+          canvasCtrl: canvasCtrl,
+          audioCtrl: audioCtrl,
+          direction: Axis.horizontal,
+        ),
+        if (hasSettings) ...[
+          const SizedBox(height: 6),
+          Container(
+            key: canvasCtrl.dockedSettingsKey,
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: canvasCtrl.isDarkMode
+                  ? Colors.grey.shade900.withAlpha(240)
+                  : Colors.white.withAlpha(240),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: canvasCtrl.isDarkMode
+                    ? Colors.white10
+                    : Colors.black12,
+              ),
+            ),
+            child: DrawingToolsRow.buildSettingsRow(canvasCtrl, context),
+          )
+              .animate()
+              .fade(duration: 200.ms)
+              .scale(
+                  begin: const Offset(0.95, 0.95),
+                  curve: Curves.easeOut),
+        ],
+      ],
+    );
+
+    return opacity < 1.0 ? Opacity(opacity: opacity, child: content) : content;
   }
 }

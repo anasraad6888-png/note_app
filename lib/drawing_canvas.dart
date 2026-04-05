@@ -1,15 +1,16 @@
 import 'dart:ui' as ui;
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'models/note_document.dart';
 import 'models/canvas_models.dart';
 import 'painters/canvas_painters.dart';
-import 'dart:math' as math;
 import 'widgets/pdf_page_background.dart';
 import 'widgets/interactive_table_widget.dart';
 import 'widgets/interactive_shape_widget.dart';
@@ -61,18 +62,21 @@ class _CanvasScrollBehavior extends MaterialScrollBehavior {
       : <ui.PointerDeviceKind>{};
 }
 
-const double _kInfiniteCanvasSize = 50000.0;
-
 class _DrawingCanvasState extends State<DrawingCanvas>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, TickerProviderStateMixin {
   late AudioController audioCtrl;
   late CanvasController canvasCtrl;
   int _pointerCount = 0;
   bool _hasMultiTouchInCurrentGesture = false;
   bool _isSpacePressed = false;
   bool _isStylusButtonPressed = false;
-  bool _infiniteCentered = false;
+  bool _isFirstLayout = true;
 
+  /// True while the user is actively drawing on the canvas (pen/finger down in draw mode).
+  /// When true, the InteractiveViewer pan is disabled so the canvas never moves while drawing.
+  bool _isDrawing = false;
+
+  /// Determines if the current input should explicitly trigger navigation rather than drawing.
   bool get _shouldNavigate {
     return canvasCtrl.isPanZoomMode ||
         _pointerCount > 1 ||
@@ -81,12 +85,72 @@ class _DrawingCanvasState extends State<DrawingCanvas>
         _isStylusButtonPressed;
   }
 
+  /// Determines if the InteractiveViewer is allowed to pan. 
+  /// Enables native trackpad scrolling when not actively drawing.
+  bool get _isPanEnabled {
+    if (_shouldNavigate) return true;
+    return !_isDrawing;
+  }
+
+  // --- Spring-back (Bouncing Physics) ---
+  // Uses a persistent Ticker that checks every frame if out of bounds.
+  // When the canvas is out-of-bounds AND no pointer is down, it springs back immediately.
+  late final Ticker _springTicker;
+  late final AnimationController _bounceController;
+  Animation<Matrix4>? _bounceAnimation;
+  bool _isBouncing = false;         // spring back is active
+  bool _interacting = false;         // finger/trackpad is touching right now
+  int _releaseTimestamp = 0;        // epoch ms when interaction ended
+
+  // --- Pull to Add Page ---
+  static const double _kPullThreshold = 120.0; // px past bottom edge to trigger
+  late final AnimationController _pullIndicatorController;
+  bool _isPullingPastBottom = false;
+  bool _isPullReadyToRelease = false; // crossed threshold
+  double _pullOverscrollAmount = 0.0; // How far past the bottom edge we've pulled
+  bool _pageAddedByPull = false; // prevents double-firing
+
   @override
   void initState() {
     super.initState();
+    _bounceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 420),
+    )..addListener(() {
+        if (_bounceAnimation != null) {
+          canvasCtrl.transformationController.value = _bounceAnimation!.value;
+        }
+      })
+    ..addStatusListener((status) {
+        if (status == AnimationStatus.completed ||
+            status == AnimationStatus.dismissed) {
+          _isBouncing = false;
+        }
+      });
+
+    _pullIndicatorController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+
+    // Ticker that runs every frame and triggers spring-back after a short
+    // settle delay once the user lifts their finger.
+    _springTicker = createTicker((_) {
+      if (!_interacting && !_isBouncing) {
+        // Wait 150ms after release before springing back — gives the canvas
+        // time to coast naturally and avoids instant snapping.
+        final int now = DateTime.now().millisecondsSinceEpoch;
+        if (now - _releaseTimestamp >= 250) {
+          _enforceBoundsIfNeeded();
+        }
+      }
+    });
+    _springTicker.start();
+
     WidgetsBinding.instance.addObserver(this);
     _initWithNewDocument();
   }
+
 
   /// Called by the OS whenever window metrics change (keyboard show/hide).
   @override
@@ -113,10 +177,243 @@ class _DrawingCanvasState extends State<DrawingCanvas>
 
   @override
   void dispose() {
+    _springTicker.dispose();
+    _boundsCheckTimer?.cancel();
+    _pullIndicatorController.dispose();
+    _bounceController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     audioCtrl.dispose();
     canvasCtrl.dispose();
     super.dispose();
+  }
+
+  // ── Pull-to-Add-Page helpers ──────────────────────────────────────────────
+
+  /// Called every frame during onInteractionUpdate to measure bottom overscroll.
+  void _updatePullState() {
+    if (canvasCtrl.viewportSize?.isEmpty ?? true) return;
+
+    final matrix = canvasCtrl.transformationController.value;
+    final scale = matrix.getMaxScaleOnAxis();
+    final viewportH = canvasCtrl.viewportSize!.height;
+    final int pageCount =
+        widget.document.pages.isNotEmpty ? widget.document.pages.length : 1;
+    final double documentHeight = (16.0 + pageCount * 940.0 + 16.0) * scale;
+
+    // y translation: negative means we've scrolled down
+    final double currentY = matrix.getTranslation().y;
+    // The max upward scroll before overscrolling bottom
+    final double minY = viewportH - documentHeight;
+
+    final double bottomOverscroll = currentY < minY ? (minY - currentY) : 0.0;
+
+    final bool pulling = bottomOverscroll > 1.0;
+    final bool ready = bottomOverscroll >= _kPullThreshold;
+
+    // Trigger haptic once when threshold is crossed
+    if (ready && !_isPullReadyToRelease) {
+      HapticFeedback.mediumImpact();
+    }
+
+    if (pulling != _isPullingPastBottom ||
+        ready != _isPullReadyToRelease ||
+        (bottomOverscroll - _pullOverscrollAmount).abs() > 1.0) {
+      setState(() {
+        _isPullingPastBottom = pulling;
+        _isPullReadyToRelease = ready;
+        _pullOverscrollAmount = bottomOverscroll;
+        if (pulling) {
+          _pageAddedByPull = false; // reset if user starts pulling again
+        }
+      });
+    }
+  }
+
+  /// Called by the user releases (onInteractionEnd) while in pull state.
+  void _onPullReleased() {
+    if (!_isPullingPastBottom) return;
+    if (_isPullReadyToRelease && !_pageAddedByPull) {
+      _pageAddedByPull = true;
+      HapticFeedback.heavyImpact();
+      canvasCtrl.addPage();
+    }
+    // Reset pull state
+    setState(() {
+      _isPullingPastBottom = false;
+      _isPullReadyToRelease = false;
+      _pullOverscrollAmount = 0.0;
+    });
+  }
+
+  // ── Rubber Band Physics ───────────────────────────────────────────────────
+
+  /// Apple's rubber-band formula: converts a raw overscroll distance into
+  /// a dampened displacement. The further you pull, the heavier it feels.
+  /// `overscroll` = how far past the boundary, `dimension` = viewport height or width.
+  double _rubberBandResist(double overscroll, double dimension) {
+    if (overscroll <= 0) return 0;
+    // f(x) = (1 - (1 / ((x * 0.55 / d) + 1))) * d
+    // at x=0 → 0, at x→∞ → d. Derivative at 0 = 0.55 (55% resistance start)
+    const double kCoefficient = 0.55;
+    return (1.0 - (1.0 / ((overscroll * kCoefficient / dimension) + 1.0))) *
+        dimension;
+  }
+
+  /// Called every update frame. If the canvas is out of bounds, replace the
+  /// raw InteractiveViewer translation with a rubber-banded equivalent so that
+  /// the further the user pulls, the heavier it feels.
+  void _applyRubberBandFriction() {
+    if (canvasCtrl.viewportSize?.isEmpty ?? true) return;
+
+    final matrix = canvasCtrl.transformationController.value;
+    final scale = matrix.getMaxScaleOnAxis();
+    final viewportW = canvasCtrl.viewportSize!.width;
+    final viewportH = canvasCtrl.viewportSize!.height;
+
+    final double documentWidth = 700.0 * scale;
+    final int pageCount =
+        widget.document.pages.isNotEmpty ? widget.document.pages.length : 1;
+    final double documentHeight = (16.0 + pageCount * 940.0 + 16.0) * scale;
+
+    final double currentX = matrix.getTranslation().x;
+    final double currentY = matrix.getTranslation().y;
+
+    // Compute the "in-bounds" limits
+    double minX, maxX, maxY;
+    if (documentWidth < viewportW) {
+      final double centeredX = (viewportW - documentWidth) / 2.0;
+      minX = maxX = centeredX;
+    } else {
+      minX = viewportW - documentWidth;
+      maxX = 0.0;
+    }
+    if (documentHeight < viewportH) {
+      maxY = (viewportH - documentHeight) / 2.0;
+    } else {
+      maxY = 0.0;
+    }
+
+    double newX = currentX;
+    double newY = currentY;
+    bool modified = false;
+
+    // X rubber band
+    if (currentX > maxX) {
+      // Over the right/top edge
+      final double raw = currentX - maxX;
+      final double dampened = _rubberBandResist(raw, viewportW);
+      newX = maxX + dampened;
+      modified = true;
+    } else if (currentX < minX) {
+      final double raw = minX - currentX;
+      final double dampened = _rubberBandResist(raw, viewportW);
+      newX = minX - dampened;
+      modified = true;
+    }
+
+    // Y rubber band — top overscroll only.
+    // Bottom overscroll (currentY < minY) is intentionally NOT dampened here
+    // so that _updatePullState can measure the raw distance for pull-to-add-page.
+    if (currentY > maxY) {
+      // Past the TOP (first page) — apply full rubber band
+      final double raw = currentY - maxY;
+      final double dampened = _rubberBandResist(raw, viewportH);
+      newY = maxY + dampened;
+      modified = true;
+    }
+    // Note: currentY < minY (bottom) is left untouched — free movement.
+
+    if (modified && ((newX - currentX).abs() > 0.1 || (newY - currentY).abs() > 0.1)) {
+      final Matrix4 corrected = matrix.clone()
+        ..setTranslationRaw(newX, newY, 0.0);
+      canvasCtrl.transformationController.value = corrected;
+    }
+  }
+
+  // ── Bounds helpers ────────────────────────────────────────────────────────
+
+  /// Computes the target (clamped) translation for the current matrix.
+  /// Returns null if already within bounds (no correction needed).
+  ({double x, double y})? _computeTargetTranslation() {
+    if (canvasCtrl.viewportSize?.isEmpty ?? true) return null;
+
+    final matrix = canvasCtrl.transformationController.value;
+    final scale = matrix.getMaxScaleOnAxis();
+    final viewportW = canvasCtrl.viewportSize!.width;
+    final viewportH = canvasCtrl.viewportSize!.height;
+
+    final double documentWidth = 700.0 * scale;
+    final int pageCount =
+        widget.document.pages.isNotEmpty ? widget.document.pages.length : 1;
+    final double documentHeight = (16.0 + pageCount * 940.0 + 16.0) * scale;
+
+    final double currentX = matrix.getTranslation().x;
+    final double currentY = matrix.getTranslation().y;
+
+    double targetX;
+    double targetY;
+
+    // Horizontal
+    if (documentWidth < viewportW) {
+      targetX = (viewportW - documentWidth) / 2.0;
+    } else {
+      targetX = currentX.clamp(viewportW - documentWidth, 0.0);
+    }
+
+    // Vertical
+    if (documentHeight < viewportH) {
+      targetY = (viewportH - documentHeight) / 2.0;
+    } else {
+      targetY = currentY.clamp(viewportH - documentHeight, 0.0);
+    }
+
+    if ((targetX - currentX).abs() < 0.5 && (targetY - currentY).abs() < 0.5) {
+      return null; // already in bounds
+    }
+
+    return (x: targetX, y: targetY);
+  }
+
+  /// Called every frame by _springTicker when not interacting and not bouncing.
+  /// Starts the spring-back animation the moment the user lifts their finger.
+  void _enforceBoundsIfNeeded() {
+    if (!mounted) return;
+    final target = _computeTargetTranslation();
+    if (target == null) return; // in bounds — nothing to do
+
+    final matrix = canvasCtrl.transformationController.value;
+    final Matrix4 targetMatrix = matrix.clone()
+      ..setTranslationRaw(target.x, target.y, 0.0);
+
+    _isBouncing = true;
+    _bounceAnimation = Matrix4Tween(
+      begin: matrix,
+      end: targetMatrix,
+    ).animate(CurvedAnimation(
+      parent: _bounceController,
+      curve: Curves.easeOutCubic,
+    ));
+    _bounceController.forward(from: 0.0);
+  }
+
+  /// Instant (no animation) snap — only for the very first layout frame.
+  void _enforceBounds({bool animate = false}) {
+    final target = _computeTargetTranslation();
+    if (target == null) return;
+
+    final matrix = canvasCtrl.transformationController.value;
+    final Matrix4 targetMatrix = matrix.clone()
+      ..setTranslationRaw(target.x, target.y, 0.0);
+
+    if (animate) {
+      _isBouncing = true;
+      _bounceAnimation = Matrix4Tween(begin: matrix, end: targetMatrix).animate(
+        CurvedAnimation(parent: _bounceController, curve: Curves.easeOutCubic),
+      );
+      _bounceController.forward(from: 0.0);
+    } else {
+      canvasCtrl.transformationController.value = targetMatrix;
+    }
   }
 
   @override
@@ -131,6 +428,8 @@ class _DrawingCanvasState extends State<DrawingCanvas>
       canvasCtrl.isDarkMode = widget.isDarkMode;
     }
   }
+
+  Timer? _boundsCheckTimer;
 
   void _initWithNewDocument() {
     audioCtrl = AudioController(
@@ -199,8 +498,15 @@ class _DrawingCanvasState extends State<DrawingCanvas>
               canvasCtrl: canvasCtrl,
             );
           };
+    
+    canvasCtrl.transformationController.removeListener(_onCanvasTransformChanged);
+    canvasCtrl.transformationController.addListener(_onCanvasTransformChanged);
+
     setState(() {});
   }
+
+  // No longer needed — replaced by _springTicker + _enforceBoundsIfNeeded
+  void _onCanvasTransformChanged() {}
 
   @override
   Widget build(BuildContext context) {
@@ -279,64 +585,16 @@ class _DrawingCanvasState extends State<DrawingCanvas>
                           valueListenable: canvasCtrl.transformationController,
                           builder: (context, matrix, child) {
                             final scale = matrix.getMaxScaleOnAxis();
-                            // Check if the current page has infinite canvas enabled
-                            final idx = canvasCtrl.currentPageIndex;
-                            final isInfinitePage =
-                                canvasCtrl.pageTemplates.isNotEmpty &&
-                                idx < canvasCtrl.pageTemplates.length &&
-                                canvasCtrl.pageTemplates[idx].isInfinite;
 
-                            if (isInfinitePage) {
-                              // Center the infinite canvas the first time we enter infinite mode
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                if (!_infiniteCentered) {
-                                  _centerInfiniteCanvas();
-                                }
-                              });
-
-                              return InteractiveViewer(
-                                transformationController:
-                                    canvasCtrl.transformationController,
-                                minScale: 0.02,
-                                maxScale: 20.0,
-                                boundaryMargin: const EdgeInsets.all(
-                                  double.infinity,
-                                ),
-                                panEnabled: _shouldNavigate,
-                                panAxis: PanAxis.free,
-                                scaleEnabled: true,
-                                constrained: false,
-                                child: SizedBox(
-                                  width: _kInfiniteCanvasSize,
-                                  height: _kInfiniteCanvasSize,
-                                  child: _buildInfinitePage(idx),
-                                ),
-                              );
-                            }
-
-                            // Normal paged mode — reset transform to identity when returning from infinite
-                            if (_infiniteCentered) {
-                              _infiniteCentered = false;
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                canvasCtrl.transformationController.value =
-                                    Matrix4.identity();
-                              });
-                            }
-                            final panAxis = scale <= 1.05
-                                ? PanAxis.vertical
-                                : PanAxis.free;
-                            // Calculate minScale dynamically so the user cannot
-                            // zoom out past the point where all pages are visible.
-                            // Total ListView height = top(80) + pages*(900+40) + bottom(20)
                             return LayoutBuilder(
                               builder: (context, constraints) {
-                                // Save exact viewport size for zoom controls
-                                // so they don't rely on the larger MediaQuery size.
-                                canvasCtrl.viewportSize =
-                                    Size(constraints.maxWidth, constraints.maxHeight);
+                                canvasCtrl.viewportSize = Size(
+                                  constraints.maxWidth,
+                                  constraints.maxHeight,
+                                );
 
                                 final int pageCount =
-                                    widget.document.pages.length;
+                                    widget.document.pages.isNotEmpty ? widget.document.pages.length : 1;
                                 final double totalContentH =
                                     16.0 + pageCount * 940.0 + 16.0;
                                 final double minScaleH =
@@ -349,35 +607,79 @@ class _DrawingCanvasState extends State<DrawingCanvas>
                                             ? minScaleH
                                             : minScaleW)
                                         .clamp(0.05, 1.0);
-                                return InteractiveViewer(
-                                  transformationController:
-                                      canvasCtrl.transformationController,
-                                  minScale: computedMin,
-                                  maxScale: 20.0,
-                                  boundaryMargin: EdgeInsets.symmetric(
-                                    horizontal: constraints.maxWidth,
-                                    vertical: 0.0,
-                                  ),
-                                  panEnabled: _shouldNavigate || _pointerCount > 1,
-                                  panAxis: panAxis,
-                                  scaleEnabled: true,
-                                  constrained: false,
-                                  child: SizedBox(
-                                    width: 700,
-                                    child: ListView.builder(
-                                      // InteractiveViewer (constrained:false) handles all
-                                      // pan/scroll gestures — disable ListView scrolling
-                                      // to prevent gesture conflicts.
-                                      physics: const NeverScrollableScrollPhysics(),
-                                      padding: const EdgeInsets.only(
-                                        top: 16,
-                                        bottom: 16,
+
+                                if (_isFirstLayout) {
+                                  _isFirstLayout = false;
+                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                    if (mounted) _enforceBounds(animate: false);
+                                  });
+                                }
+
+                                final bool pageWiderThanViewport = 700.0 * scale >= constraints.maxWidth;
+                                final PanAxis effectivePanAxis =
+                                    pageWiderThanViewport ? PanAxis.free : PanAxis.vertical;
+
+                                return Directionality(
+                                  textDirection: TextDirection.ltr,
+                                  child: InteractiveViewer(
+                                    transformationController:
+                                        canvasCtrl.transformationController,
+                                    onInteractionStart: (details) {
+                                      _interacting = true;
+                                      _isBouncing = false;
+                                      _bounceController.stop();
+                                    },
+                                    onInteractionUpdate: (details) {
+                                      _applyRubberBandFriction();
+                                      _updatePullState();
+                                    },
+                                    onInteractionEnd: (details) {
+                                      _interacting = false;
+                                      _releaseTimestamp = DateTime.now().millisecondsSinceEpoch;
+                                      _onPullReleased();
+                                      // Spring-back is handled by _springTicker next frame
+                                    },
+                                    minScale: computedMin,
+                                    maxScale: 20.0,
+                                    alignment: null,
+                                    boundaryMargin: const EdgeInsets.all(150.0), // Allow 150px spring beyond edges before snapping back
+                                    panEnabled: _isPanEnabled,
+                                    panAxis: effectivePanAxis,
+                                    scaleEnabled: true,
+                                    constrained: false,
+                                    child: Directionality(
+                                      textDirection: TextDirection.rtl,
+                                      child: SizedBox(
+                                        width: 700,
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            ListView.builder(
+                                              // InteractiveViewer (constrained:false) handles all
+                                              // pan/scroll gestures — disable ListView scrolling
+                                              // to prevent gesture conflicts.
+                                              physics:
+                                                  const NeverScrollableScrollPhysics(),
+                                              padding: const EdgeInsets.only(
+                                                top: 16,
+                                                bottom: 16,
+                                              ),
+                                              controller: canvasCtrl.scrollController,
+                                              itemCount: widget.document.pages.length,
+                                              shrinkWrap: true,
+                                              itemBuilder: (context, index) =>
+                                                  _buildPage(index),
+                                            ),
+                                            // ── Pull-to-Add indicator ──
+                                            _PullToAddIndicator(
+                                              overscroll: _pullOverscrollAmount,
+                                              threshold: _kPullThreshold,
+                                              isReadyToRelease: _isPullReadyToRelease,
+                                              isDarkMode: canvasCtrl.isDarkMode,
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                      controller: canvasCtrl.scrollController,
-                                      itemCount: widget.document.pages.length,
-                                      shrinkWrap: true,
-                                      itemBuilder: (context, index) =>
-                                          _buildPage(index),
                                     ),
                                   ),
                                 );
@@ -495,9 +797,19 @@ class _DrawingCanvasState extends State<DrawingCanvas>
                       ],
 
                       if (audioCtrl.isAudioBarVisible)
-                        AudioPlayerWindow(
-                          audioCtrl: audioCtrl,
-                          isDarkMode: canvasCtrl.isDarkMode,
+                        Positioned(
+                          left: 0,
+                          top: 0,
+                          child: CompositedTransformFollower(
+                            link: audioCtrl.audioWindowLink,
+                            targetAnchor: Alignment.bottomCenter,
+                            followerAnchor: Alignment.topCenter,
+                            offset: const Offset(0, 8),
+                            child: AudioPlayerWindow(
+                              audioCtrl: audioCtrl,
+                              isDarkMode: canvasCtrl.isDarkMode,
+                            ),
+                          ),
                         ),
                     ],
                   ),
@@ -507,288 +819,6 @@ class _DrawingCanvasState extends State<DrawingCanvas>
           ),
         );
       },
-    );
-  }
-
-  /// Centers the TransformationController to the middle of the infinite canvas.
-  void _centerInfiniteCanvas() {
-    final renderBox = context.findRenderObject() as RenderBox?;
-    if (renderBox == null) return;
-    final viewportSize = renderBox.size;
-    // We want the center of the 50000x50000 canvas to appear in the center of the screen.
-    final centerOffset = Offset(
-      _kInfiniteCanvasSize / 2 - viewportSize.width / 2,
-      _kInfiniteCanvasSize / 2 - viewportSize.height / 2,
-    );
-    canvasCtrl.transformationController.value = Matrix4.identity()
-      ..translate(-centerOffset.dx, -centerOffset.dy);
-    _infiniteCentered = true;
-  }
-
-  /// Builds the infinite canvas as a full 50000x50000 surface
-  Widget _buildInfinitePage(int index) {
-    canvasCtrl.ensurePageExists(index);
-    final template = canvasCtrl.pageTemplates[index];
-    return Listener(
-      onPointerDown: (event) {
-        if (_shouldNavigate) return;
-        if (canvasCtrl.penPalmRejection && event.radiusMajor > 20.0) return;
-
-        canvasCtrl.currentPageIndex = index;
-        if (canvasCtrl.isEraserMode) {
-          canvasCtrl.addEraserPoint(
-            index,
-            event.localPosition,
-            globalPosition: event.position,
-          );
-        } else if (canvasCtrl.isLaserMode) {
-          canvasCtrl.addLaserPoint(index, event.localPosition);
-        } else if (canvasCtrl.isHighlighterMode) {
-          canvasCtrl.addHighlighterPoint(
-            index,
-            event.localPosition,
-            globalPosition: event.position,
-          );
-          canvasCtrl.startHighlighterHoldTimer(index, event.localPosition);
-        } else if (canvasCtrl.isShapeMode) {
-          canvasCtrl.startShape(index, event.localPosition);
-        } else if (canvasCtrl.isTableMode) {
-          canvasCtrl.startTable(index, event.localPosition);
-        } else if (canvasCtrl.isLassoMode) {
-          if (!canvasCtrl.isPointInSelectionUI(event.localPosition)) {
-            canvasCtrl.startLasso(event.localPosition);
-          }
-        } else if (canvasCtrl.isTextMode) {
-          bool isHit = false;
-          final expandedRectRadius = const EdgeInsets.all(50.0);
-          for (var txt in canvasCtrl.getSyncedTexts(index)) {
-            // Add a small 20px padding to the exact rect to generously catch taps on borders
-            if (expandedRectRadius
-                .inflateRect(txt.rect)
-                .contains(event.localPosition)) {
-              isHit = true;
-              break;
-            }
-          }
-          if (!isHit) canvasCtrl.addTextAt(index, event.localPosition);
-        } else if (!canvasCtrl.isTextMode) {
-          canvasCtrl.addPoint(
-            index,
-            event.localPosition,
-            globalPosition: event.position,
-            pressure: event.pressure,
-          );
-          canvasCtrl.startPenHoldTimer(
-            index,
-            event.localPosition,
-            globalPosition: event.position,
-            pressure: event.pressure,
-          );
-        }
-      },
-      onPointerMove: (event) {
-        if (_shouldNavigate) return;
-        if (canvasCtrl.penPalmRejection && event.radiusMajor > 20.0) return;
-
-        if (canvasCtrl.isEraserMode) {
-          canvasCtrl.addEraserPoint(
-            index,
-            event.localPosition,
-            globalPosition: event.position,
-          );
-        } else if (canvasCtrl.isLaserMode) {
-          canvasCtrl.addLaserPoint(index, event.localPosition);
-        } else if (canvasCtrl.isHighlighterMode) {
-          canvasCtrl.addHighlighterPoint(
-            index,
-            event.localPosition,
-            globalPosition: event.position,
-          );
-          canvasCtrl.startHighlighterHoldTimer(index, event.localPosition);
-        } else if (canvasCtrl.isShapeMode) {
-          canvasCtrl.updateShape(index, event.localPosition);
-        } else if (canvasCtrl.isTableMode) {
-          canvasCtrl.updateTable(index, event.localPosition);
-        } else if (canvasCtrl.isLassoMode) {
-          if (canvasCtrl.lassoPath != null) {
-            canvasCtrl.updateLasso(event.localPosition);
-          }
-        } else if (!canvasCtrl.isTextMode) {
-          canvasCtrl.addPoint(
-            index,
-            event.localPosition,
-            globalPosition: event.position,
-            pressure: event.pressure,
-          );
-          canvasCtrl.startPenHoldTimer(
-            index,
-            event.localPosition,
-            globalPosition: event.position,
-            pressure: event.pressure,
-          );
-        }
-      },
-      onPointerUp: (event) {
-        if (_shouldNavigate) return;
-        if (canvasCtrl.penPalmRejection && event.radiusMajor > 20.0) return;
-
-        if (canvasCtrl.isEraserMode) {
-          canvasCtrl.addEraserPoint(index, null);
-        } else if (canvasCtrl.isLaserMode) {
-          canvasCtrl.addLaserPoint(index, null);
-        } else if (canvasCtrl.isHighlighterMode) {
-          canvasCtrl.highlighterHoldTimer?.cancel();
-          canvasCtrl.isHighlighterHoldTriggered = false;
-          canvasCtrl.addHighlighterPoint(index, null);
-        } else if (canvasCtrl.isShapeMode) {
-          canvasCtrl.endShape(index);
-        } else if (canvasCtrl.isTableMode) {
-          canvasCtrl.endTable(index);
-        } else if (canvasCtrl.isLassoMode) {
-          if (canvasCtrl.lassoPath != null) {
-            canvasCtrl.finishLassoSelection(index);
-          }
-        } else if (!canvasCtrl.isTextMode) {
-          canvasCtrl.penHoldTimer?.cancel();
-          canvasCtrl.isPenHoldTriggered = false;
-          canvasCtrl.addPoint(index, null);
-        }
-      },
-      child: Stack(
-        children: [
-          // Infinite tiled background
-          Positioned.fill(
-            child: CustomPaint(
-              painter: CanvasBackgroundPainter(
-                template,
-                isDarkMode: canvasCtrl.isDarkMode,
-              ),
-              size: const Size(_kInfiniteCanvasSize, _kInfiniteCanvasSize),
-            ),
-          ),
-          // Strokes
-          Positioned.fill(
-            child: CustomPaint(
-              painter: DrawingPainter(
-                canvasCtrl.getSyncedPoints(index),
-                template,
-                isDarkMode: canvasCtrl.isDarkMode,
-                version: canvasCtrl.contentVersion,
-              ),
-              size: const Size(_kInfiniteCanvasSize, _kInfiniteCanvasSize),
-            ),
-          ),
-          // Shapes
-          Positioned.fill(
-            child: CustomPaint(
-              painter: ShapePainter(
-                canvasCtrl.getSyncedShapes(index),
-                canvasCtrl.isShapeMode ? canvasCtrl.currentDrawingShape : null,
-                template,
-                isDarkMode: canvasCtrl.isDarkMode,
-                version: canvasCtrl.contentVersion,
-              ),
-              size: const Size(_kInfiniteCanvasSize, _kInfiniteCanvasSize),
-            ),
-          ),
-          // Lasso
-          if (canvasCtrl.lassoPath != null &&
-              canvasCtrl.currentPageIndex == index)
-            Positioned.fill(
-              child: CustomPaint(
-                painter: LassoPainter(
-                  canvasCtrl.lassoPath!,
-                  version: canvasCtrl.contentVersion,
-                ),
-                size: const Size(_kInfiniteCanvasSize, _kInfiniteCanvasSize),
-              ),
-            ),
-          // Laser
-          Positioned.fill(
-            child: CustomPaint(
-              painter: LaserPainter(
-                index < canvasCtrl.activeLaserStrokes.length
-                    ? canvasCtrl.activeLaserStrokes[index]
-                    : [],
-                fadeDuration: canvasCtrl.laserFadeDuration,
-                version: canvasCtrl.contentVersion,
-              ),
-              size: const Size(_kInfiniteCanvasSize, _kInfiniteCanvasSize),
-            ),
-          ),
-
-          // Images
-          ...canvasCtrl
-              .getSyncedImages(index)
-              .asMap()
-              .entries
-              .map(
-                (entry) => Positioned(
-                  key: ValueKey(
-                    'infimg_${index}_${entry.key}_${entry.value.path}',
-                  ),
-                  left: entry.value.offset.dx,
-                  top: entry.value.offset.dy,
-                  child: _buildInteractiveImage(entry.value, index),
-                ),
-              ),
-          // Shapes (interactive)
-          ...canvasCtrl
-              .getSyncedShapes(index)
-              .asMap()
-              .entries
-              .map(
-                (entry) => InteractiveShapeWidget(
-                  key: ValueKey(
-                    'infshape_${index}_${entry.key}_${entry.value.id}',
-                  ),
-                  shape: entry.value,
-                  pageIndex: index,
-                  onSave: canvasCtrl.saveStrokes,
-                  readOnly: false,
-                  onUpdate: canvasCtrl.notifyListeners,
-                  onDelete: () => canvasCtrl.deleteShape(index, entry.value),
-                ),
-              ),
-          // Tables (interactive)
-          ...canvasCtrl
-              .getSyncedTables(index)
-              .asMap()
-              .entries
-              .map(
-                (entry) => InteractiveTableWidget(
-                  key: ValueKey(
-                    'inftbl_${index}_${entry.key}_${entry.value.id}',
-                  ),
-                  table: entry.value,
-                  pageIndex: index,
-                  onSave: canvasCtrl.saveStrokes,
-                  readOnly: false,
-                  isDarkMode: canvasCtrl.isDarkMode,
-                  onDelete: () => canvasCtrl.deleteTable(index, entry.value),
-                ),
-              ),
-          // Texts (interactive)
-          ...canvasCtrl
-              .getSyncedTexts(index)
-              .asMap()
-              .entries
-              .map(
-                (entry) => InteractiveTextWidget(
-                  key: ValueKey(
-                    'inftxt_${index}_${entry.key}_${entry.value.id}',
-                  ),
-                  textData: entry.value,
-                  isDarkMode: canvasCtrl.isDarkMode,
-                  readOnly: false,
-                  onSave: canvasCtrl.saveStrokes,
-                  onDelete: () => canvasCtrl.deleteText(index, entry.value),
-                  onSelect: () => canvasCtrl.currentPageIndex = index,
-                  canvasCtrl: canvasCtrl,
-                ),
-              ),
-        ],
-      ),
     );
   }
 
@@ -803,14 +833,19 @@ class _DrawingCanvasState extends State<DrawingCanvas>
           width: 700,
           height: 900,
           decoration: BoxDecoration(
-            color: canvasCtrl.isDarkMode ? Colors.black : Colors.white,
+            color: canvasCtrl.isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withAlpha(20),
-                blurRadius: 10,
-                offset: const Offset(0, 5),
+                color: canvasCtrl.isDarkMode
+                    ? Colors.white.withAlpha(5)
+                    : Colors.black.withAlpha(15),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
               ),
             ],
+            border: canvasCtrl.isDarkMode
+                ? Border.all(color: Colors.white12, width: 0.5)
+                : Border.all(color: Colors.black.withAlpha(10), width: 0.5),
           ),
           child: Screenshot(
             controller: canvasCtrl.pagesScreenshotControllers[index],
@@ -834,6 +869,10 @@ class _DrawingCanvasState extends State<DrawingCanvas>
         if (_shouldNavigate) return;
         if (canvasCtrl.penPalmRejection && event.radiusMajor > 20.0) return;
 
+        setState(() {
+          _isDrawing = true;
+        });
+
         canvasCtrl.currentPageIndex = index;
         if (canvasCtrl.isEraserMode) {
           canvasCtrl.addEraserPoint(
@@ -869,7 +908,7 @@ class _DrawingCanvasState extends State<DrawingCanvas>
               break;
             }
           }
-          if (!isHit) canvasCtrl.addTextAt(index, event.localPosition);
+          if (!isHit) canvasCtrl.startText(index, event.localPosition);
         } else if (!canvasCtrl.isTextMode) {
           canvasCtrl.addPoint(
             index,
@@ -916,6 +955,8 @@ class _DrawingCanvasState extends State<DrawingCanvas>
           if (canvasCtrl.lassoPath != null) {
             canvasCtrl.updateLasso(event.localPosition);
           }
+        } else if (canvasCtrl.isTextMode) {
+          canvasCtrl.updateText(index, event.localPosition);
         } else if (!canvasCtrl.isTextMode) {
           canvasCtrl.addPoint(
             index,
@@ -939,6 +980,10 @@ class _DrawingCanvasState extends State<DrawingCanvas>
         if (_shouldNavigate) return;
         if (canvasCtrl.penPalmRejection && event.radiusMajor > 20.0) return;
 
+        setState(() {
+          _isDrawing = false;
+        });
+
         if (canvasCtrl.isEraserMode) {
           canvasCtrl.addEraserPoint(index, null);
         } else if (canvasCtrl.isLaserMode) {
@@ -955,10 +1000,20 @@ class _DrawingCanvasState extends State<DrawingCanvas>
           if (canvasCtrl.lassoPath != null) {
             canvasCtrl.finishLassoSelection(index);
           }
+        } else if (canvasCtrl.isTextMode) {
+          canvasCtrl.endText(index);
         } else if (!canvasCtrl.isTextMode) {
           canvasCtrl.penHoldTimer?.cancel();
           canvasCtrl.isPenHoldTriggered = false;
           canvasCtrl.addPoint(index, null);
+        }
+      },
+      onPointerCancel: (event) {
+        if (_isDrawing) {
+          setState(() {
+            _isDrawing = false;
+          });
+          canvasCtrl.cancelCurrentStroke(index);
         }
       },
       child: _buildPageContent(index),
@@ -1050,6 +1105,19 @@ class _DrawingCanvasState extends State<DrawingCanvas>
                 version: canvasCtrl.contentVersion,
               ),
               size: Size.infinite,
+            ),
+          ),
+        // ── Text box drag preview ─────────────────────────────────────
+        if (!isReadOnly &&
+            canvasCtrl.isTextMode &&
+            canvasCtrl.currentPageIndex == index &&
+            canvasCtrl.currentDrawingTextRect != null)
+          Positioned.fill(
+            child: CustomPaint(
+              painter: _TextBoxPreviewPainter(
+                rect: canvasCtrl.currentDrawingTextRect!,
+                accentColor: const Color(0xFFFF7F6A),
+              ),
             ),
           ),
         if (!isReadOnly && canvasCtrl.activeSelectionGroup?.pageIndex == index)
@@ -1458,7 +1526,7 @@ class _DrawingCanvasState extends State<DrawingCanvas>
                 builder: (itemCtx) => IconButton(
                   icon: const Icon(LucideIcons.palette, size: 20),
                   onPressed: () {
-                    DrawingToolsRow.showPopoverColorPicker(
+                    showPopoverColorPicker(
                       context: itemCtx,
                       currentColor: canvasCtrl.selectedColor,
                       onColorChanged: (c) => canvasCtrl.recolorSelection(c),
@@ -1477,4 +1545,236 @@ class _DrawingCanvasState extends State<DrawingCanvas>
       ),
     );
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Pull-to-Add-Page indicator widget
+// Sits below the last page inside the InteractiveViewer content.
+// Shows as the user drags past the bottom boundary.
+// ─────────────────────────────────────────────────────────────────────────────
+class _PullToAddIndicator extends StatelessWidget {
+  final double overscroll;
+  final double threshold;
+  final bool isReadyToRelease;
+  final bool isDarkMode;
+
+  const _PullToAddIndicator({
+    required this.overscroll,
+    required this.threshold,
+    required this.isReadyToRelease,
+    required this.isDarkMode,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (overscroll <= 0) return const SizedBox.shrink();
+
+    final double progress = (overscroll / threshold).clamp(0.0, 1.0);
+
+    // Colors
+    final Color accentColor = isReadyToRelease
+        ? const Color(0xFF34C759) // Apple green when ready
+        : const Color(0xFF5E4AE3); // Indigo violet while pulling
+    final Color bgColor = isDarkMode
+        ? const Color(0xFF1C1C1E)
+        : const Color(0xFFF2F2F7);
+    final Color textColor = isDarkMode
+        ? Colors.white.withOpacity(0.7)
+        : Colors.black.withOpacity(0.6);
+
+    // The pill height grows with pull distance, capped at 80
+    final double height = (progress * 80.0).clamp(0.0, 80.0);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 120),
+      curve: Curves.easeOut,
+      width: 700,
+      height: height,
+      child: height < 8
+          ? const SizedBox.shrink()
+          : Center(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOutCubic,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(
+                    color: accentColor.withOpacity(0.5),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: accentColor.withOpacity(0.15),
+                      blurRadius: 12,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 250),
+                      transitionBuilder: (child, animation) => ScaleTransition(
+                        scale: animation,
+                        child: child,
+                      ),
+                      child: Icon(
+                        isReadyToRelease
+                            ? LucideIcons.check   // simple ✓ not a circle
+                            : LucideIcons.arrowDown,
+                        key: ValueKey(isReadyToRelease),
+                        color: accentColor,
+                        size: 18,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      child: Text(
+                        isReadyToRelease ? 'أفلت لإضافة صفحة' : 'اسحب لإضافة صفحة',
+                        key: ValueKey(isReadyToRelease),
+                        style: TextStyle(
+                          fontFamily: 'SF Pro Text',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: textColor,
+                          letterSpacing: 0.2,
+                        ),
+                        textDirection: TextDirection.rtl,
+                      ),
+                    ),
+                    // Progress arc — collapses entirely when threshold reached
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeOut,
+                      child: isReadyToRelease
+                          ? const SizedBox.shrink()
+                          : Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const SizedBox(width: 10),
+                                SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    value: progress,
+                                    strokeWidth: 2.0,
+                                    backgroundColor:
+                                        accentColor.withOpacity(0.2),
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                        accentColor),
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+    );
+  }
+}
+
+/// Draws a live dashed-border rectangle preview while the user drags to
+/// define the size of a new text box.
+class _TextBoxPreviewPainter extends CustomPainter {
+  final Rect rect;
+  final Color accentColor;
+
+  const _TextBoxPreviewPainter({required this.rect, required this.accentColor});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final normalizedRect = Rect.fromLTRB(
+      rect.left < rect.right ? rect.left : rect.right,
+      rect.top < rect.bottom ? rect.top : rect.bottom,
+      rect.left > rect.right ? rect.left : rect.right,
+      rect.top > rect.bottom ? rect.top : rect.bottom,
+    );
+
+    if (normalizedRect.width < 4 && normalizedRect.height < 4) return;
+
+    // Fill
+    canvas.drawRect(
+      normalizedRect,
+      Paint()..color = accentColor.withAlpha(18),
+    );
+
+    // Dashed border
+    final Paint borderPaint = Paint()
+      ..color = accentColor.withAlpha(200)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+
+    const double dashLen = 8;
+    const double gapLen = 5;
+
+    void drawDashedLine(Offset start, Offset end) {
+      final double dx = end.dx - start.dx;
+      final double dy = end.dy - start.dy;
+      final double length = (Offset(dx, dy)).distance;
+      final double stepLen = dashLen + gapLen;
+      double drawn = 0;
+      while (drawn < length) {
+        final double t1 = drawn / length;
+        final double t2 = ((drawn + dashLen) / length).clamp(0.0, 1.0);
+        canvas.drawLine(
+          Offset(start.dx + dx * t1, start.dy + dy * t1),
+          Offset(start.dx + dx * t2, start.dy + dy * t2),
+          borderPaint,
+        );
+        drawn += stepLen;
+      }
+    }
+
+    drawDashedLine(normalizedRect.topLeft, normalizedRect.topRight);
+    drawDashedLine(normalizedRect.topRight, normalizedRect.bottomRight);
+    drawDashedLine(normalizedRect.bottomRight, normalizedRect.bottomLeft);
+    drawDashedLine(normalizedRect.bottomLeft, normalizedRect.topLeft);
+
+    // Corner handles
+    final Paint handlePaint = Paint()
+      ..color = accentColor
+      ..style = PaintingStyle.fill;
+    for (final corner in [
+      normalizedRect.topLeft,
+      normalizedRect.topRight,
+      normalizedRect.bottomLeft,
+      normalizedRect.bottomRight,
+    ]) {
+      canvas.drawCircle(corner, 4, handlePaint);
+    }
+
+    // Size label
+    if (normalizedRect.width > 40 && normalizedRect.height > 20) {
+      final label =
+          '${normalizedRect.width.round()} × ${normalizedRect.height.round()}';
+      final tp = TextPainter(
+        text: TextSpan(
+          text: label,
+          style: TextStyle(
+            color: accentColor,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(
+        canvas,
+        Offset(
+          normalizedRect.left + 6,
+          normalizedRect.top + 6,
+        ),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_TextBoxPreviewPainter old) =>
+      old.rect != rect || old.accentColor != accentColor;
 }

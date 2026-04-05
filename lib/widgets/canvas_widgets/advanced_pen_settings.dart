@@ -1,3 +1,4 @@
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../controllers/canvas_controller.dart';
@@ -7,7 +8,6 @@ import '../../painters/canvas_painters.dart';
 
 class AdvancedPenSettingsWindow extends StatefulWidget {
   final CanvasController canvasCtrl;
-
   final VoidCallback? onPop;
 
   const AdvancedPenSettingsWindow({super.key, required this.canvasCtrl, this.onPop});
@@ -17,7 +17,7 @@ class AdvancedPenSettingsWindow extends StatefulWidget {
 }
 
 class _AdvancedPenSettingsWindowState extends State<AdvancedPenSettingsWindow> {
-  bool _showAdvancedOptions = false;
+  bool _isAtBottom = false;
 
   @override
   Widget build(BuildContext context) {
@@ -29,146 +29,140 @@ class _AdvancedPenSettingsWindowState extends State<AdvancedPenSettingsWindow> {
         final bgColor = isDark
             ? Colors.grey.shade900.withValues(alpha: 0.95)
             : Colors.white.withValues(alpha: 0.95);
+        final screenHeight = MediaQueryData.fromView(View.of(context)).size.height;
 
         return Container(
-      width: 320,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-            color: isDark ? Colors.white10 : Colors.black12, width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
-          )
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Icon(LucideIcons.sliders, size: 20, color: textColor),
-                      const SizedBox(width: 8),
-                      Text(
-                        'إعدادات القلم المتقدمة',
-                        style: TextStyle(
-                            color: textColor,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14),
-                      ),
-                    ],
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.close, size: 20, color: textColor),
-                    onPressed: () {
-                      if (widget.onPop != null) {
-                        widget.onPop!();
-                      } else {
-                        widget.canvasCtrl.toggleAdvancedPenSettings();
-                      }
+          width: 320,
+          constraints: BoxConstraints(
+            maxHeight: screenHeight * 0.60,
+          ),
+          padding: const EdgeInsets.only(top: 16, left: 16, right: 16, bottom: 0),
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+                color: isDark ? Colors.white10 : Colors.black12, width: 1),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.15),
+                blurRadius: 15,
+                offset: const Offset(0, 8),
+              )
+            ],
+          ),
+          child: Stack(
+            alignment: Alignment.bottomCenter,
+            children: [
+              NotificationListener<ScrollNotification>(
+                onNotification: (ScrollNotification scrollInfo) {
+                  if (scrollInfo.metrics.axis == Axis.vertical) {
+                    bool newIsAtBottom = scrollInfo.metrics.maxScrollExtent <= 0 ||
+                        scrollInfo.metrics.pixels >= scrollInfo.metrics.maxScrollExtent - 10.0;
+                    if (newIsAtBottom != _isAtBottom) {
+                      Future.microtask(() {
+                        if (mounted) {
+                          setState(() {
+                            _isAtBottom = newIsAtBottom;
+                          });
+                        }
+                      });
+                    }
+                  }
+                      return false;
                     },
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // --- Live Stroke Preview ---
-              LiveStrokePreview(canvasCtrl: widget.canvasCtrl),
-              const SizedBox(height: 16),
-              
-              // --- Pen Types Selection ---
-              _buildPenTypeButtons(context, textColor),
-
-              // 1. Opacity Slider
-              _buildSliderRow(
-                context,
-                icon: LucideIcons.droplet,
-                label: 'شفافية الحبر',
-                value: widget.canvasCtrl.penOpacity,
-                min: 0.1,
-                max: 1.0,
-                onChanged: widget.canvasCtrl.setPenOpacity,
-                textColor: textColor,
-              ),
-
-              // 2. Stroke Width Precision Slider
-              _buildSliderRow(
-                context,
-                icon: LucideIcons.penTool,
-                label: 'حجم القلم الدقيق',
-                value: widget.canvasCtrl.strokeWidth,
-                min: 1.0,
-                max: 50.0,
-                onChanged: widget.canvasCtrl.updateStrokeWidth,
-                textColor: textColor,
-              ),
-
-              // 3. Smoothing / Streamline Slider
-              _buildSliderRow(
-                context,
-                icon: LucideIcons.activity,
-                label: 'تنعيم الخط',
-                value: widget.canvasCtrl.penSmoothing,
-                min: 0.0,
-                max: 1.0,
-                onChanged: widget.canvasCtrl.setPenSmoothing,
-                textColor: textColor,
-              ),
-
-              const SizedBox(height: 8),
-              
-              // Advanced Options Expand Button
-              GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _showAdvancedOptions = !_showAdvancedOptions;
-                  });
-                },
-                behavior: HitTestBehavior.opaque,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'خيارات متقدمة',
-                        style: TextStyle(
-                            color: textColor.withAlpha(150),
-                            fontSize: 12),
-                      ),
-                      const SizedBox(width: 4),
-                      Icon(
-                        _showAdvancedOptions
-                            ? LucideIcons.chevronUp
-                            : LucideIcons.chevronDown,
-                        size: 16,
-                        color: textColor.withAlpha(150),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              
-              AnimatedSize(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeOutCubic,
-                alignment: Alignment.topCenter,
-                child: _showAdvancedOptions
-                    ? Column(
+                    child: ScrollConfiguration(
+                      behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+                      child: SingleChildScrollView(
+                        physics: const ClampingScrollPhysics(),
+                      padding: const EdgeInsets.only(bottom: 24),
+                      child: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          // Header
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Flexible(
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerRight,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(LucideIcons.sliders, size: 20, color: textColor),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'إعدادات القلم المتقدمة',
+                                        style: TextStyle(
+                                            color: textColor,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                icon: Icon(Icons.close, size: 20, color: textColor),
+                                onPressed: () {
+                                  if (widget.onPop != null) {
+                                    widget.onPop!();
+                                  } else {
+                                    widget.canvasCtrl.toggleAdvancedPenSettings();
+                                  }
+                                },
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+
+                          // --- Live Stroke Preview ---
+                          LiveStrokePreview(canvasCtrl: widget.canvasCtrl),
+                          const SizedBox(height: 16),
+                          
+                          // --- Pen Types Selection ---
+                          _buildPenTypeButtons(context, textColor),
+
+                          // 1. Opacity Slider
+                          _buildSliderRow(
+                            context,
+                            icon: LucideIcons.droplet,
+                            label: 'شفافية الحبر',
+                            value: widget.canvasCtrl.penOpacity,
+                            min: 0.1,
+                            max: 1.0,
+                            onChanged: widget.canvasCtrl.setPenOpacity,
+                            textColor: textColor,
+                          ),
+
+                          // 2. Stroke Width Precision Slider
+                          _buildSliderRow(
+                            context,
+                            icon: LucideIcons.penTool,
+                            label: 'حجم القلم الدقيق',
+                            value: widget.canvasCtrl.strokeWidth,
+                            min: 1.0,
+                            max: 50.0,
+                            onChanged: widget.canvasCtrl.updateStrokeWidth,
+                            textColor: textColor,
+                          ),
+
+                          // 3. Smoothing / Streamline Slider
+                          _buildSliderRow(
+                            context,
+                            icon: LucideIcons.activity,
+                            label: 'تنعيم الخط',
+                            value: widget.canvasCtrl.penSmoothing,
+                            min: 0.0,
+                            max: 1.0,
+                            onChanged: widget.canvasCtrl.setPenSmoothing,
+                            textColor: textColor,
+                          ),
+
+                          const SizedBox(height: 8),
                           Divider(color: isDark ? Colors.white10 : Colors.black12, height: 24),
 
                           // 4. Auto-Fill Toggle
@@ -201,15 +195,53 @@ class _AdvancedPenSettingsWindowState extends State<AdvancedPenSettingsWindow> {
                             textColor: textColor,
                           ),
                         ],
-                      )
-                    : const SizedBox.shrink(),
+                      ),
+                    ),
+                  ),
+                  ),
+
+                  // Fading down arrow indicator
+                  if (!_isAtBottom)
+                    Positioned(
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      child: IgnorePointer(
+                        child: Container(
+                          height: 28,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                bgColor.withOpacity(0.0),
+                                bgColor.withOpacity(0.9),
+                              ],
+                            ),
+                            borderRadius: const BorderRadius.only(
+                              bottomLeft: Radius.circular(20),
+                              bottomRight: Radius.circular(20),
+                            ),
+                          ),
+                          child: Center(
+                            child: Icon(
+                              LucideIcons.chevronDown,
+                              size: 20,
+                              color: isDark ? Colors.white30 : Colors.black38,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                ],
               ),
-            ],
-          ),
-        );
+            );
       },
     );
   }
+
+  // --- Helper Methods (Moved inside State class to access widget.canvasCtrl) ---
 
   Widget _buildPenTypeButtons(BuildContext context, Color textColor) {
     return Padding(
@@ -222,7 +254,7 @@ class _AdvancedPenSettingsWindowState extends State<AdvancedPenSettingsWindow> {
             _buildPenButton(
               context,
               type: PenType.ball,
-              icon: Icons.edit, // Standard pen/edit
+              icon: Icons.edit,
               label: 'جاف',
               textColor: textColor,
             ),
@@ -230,7 +262,7 @@ class _AdvancedPenSettingsWindowState extends State<AdvancedPenSettingsWindow> {
             _buildPenButton(
               context,
               type: PenType.fountain,
-              icon: Icons.draw, // Fountain pen feel
+              icon: Icons.draw,
               label: 'حبر',
               textColor: textColor,
             ),
@@ -246,7 +278,7 @@ class _AdvancedPenSettingsWindowState extends State<AdvancedPenSettingsWindow> {
             _buildPenButton(
               context,
               type: PenType.pencil,
-              icon: Icons.mode_edit_outline, // Pencil like
+              icon: Icons.mode_edit_outline,
               label: 'رصاص',
               textColor: textColor,
             ),
@@ -254,7 +286,7 @@ class _AdvancedPenSettingsWindowState extends State<AdvancedPenSettingsWindow> {
             _buildPenButton(
               context,
               type: PenType.perfect,
-              icon: LucideIcons.penTool, // Perfect pen
+              icon: LucideIcons.penTool,
               label: 'واقعي',
               textColor: textColor,
             ),
@@ -262,7 +294,7 @@ class _AdvancedPenSettingsWindowState extends State<AdvancedPenSettingsWindow> {
             _buildPenButton(
               context,
               type: PenType.velocity,
-              icon: LucideIcons.wand2, // Velocity (smart)
+              icon: LucideIcons.wand2,
               label: 'ذكي',
               textColor: textColor,
             ),
@@ -334,15 +366,32 @@ class _AdvancedPenSettingsWindowState extends State<AdvancedPenSettingsWindow> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(icon, size: 16, color: textColor.withValues(alpha: 0.7)),
-              const SizedBox(width: 8),
-              Text(label, style: TextStyle(color: textColor, fontSize: 13)),
-              const Spacer(),
-              Text(
-                max > 1.0 ? value.toStringAsFixed(1) : '${(value * 100).toInt()}%',
-                style: TextStyle(
-                    color: textColor.withValues(alpha: 0.6), fontSize: 12),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, size: 16, color: textColor.withValues(alpha: 0.7)),
+                      const SizedBox(width: 8),
+                      Text(label, style: TextStyle(color: textColor, fontSize: 13)),
+                    ],
+                  ),
+                ),
+              ),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    max > 1.0 ? value.toStringAsFixed(1) : '${(value * 100).toInt()}%',
+                    style: TextStyle(
+                        color: textColor.withValues(alpha: 0.6), fontSize: 12),
+                  ),
+                ),
               ),
             ],
           ),
@@ -379,19 +428,32 @@ class _AdvancedPenSettingsWindowState extends State<AdvancedPenSettingsWindow> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              Icon(icon, size: 16, color: textColor.withValues(alpha: 0.7)),
-              const SizedBox(width: 8),
-              Text(label, style: TextStyle(color: textColor, fontSize: 13)),
-            ],
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 16, color: textColor.withValues(alpha: 0.7)),
+                  const SizedBox(width: 8),
+                  Text(label, style: TextStyle(color: textColor, fontSize: 13)),
+                ],
+              ),
+            ),
           ),
-          Transform.scale(
-            scale: 0.8,
-            child: Switch(
-              value: value,
-              onChanged: onChanged,
-              activeColor: const Color(0xFFFF7F6A),
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Transform.scale(
+                scale: 0.8,
+                child: Switch(
+                  value: value,
+                  onChanged: onChanged,
+                  activeColor: const Color(0xFFFF7F6A),
+                ),
+              ),
             ),
           ),
         ],
@@ -399,6 +461,8 @@ class _AdvancedPenSettingsWindowState extends State<AdvancedPenSettingsWindow> {
     );
   }
 }
+
+// --- Optimized Live Preview ---
 
 class LiveStrokePreview extends StatelessWidget {
   final CanvasController canvasCtrl;
@@ -424,6 +488,9 @@ class LiveStrokePreview extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             child: CustomPaint(
               painter: _LiveStrokePreviewPainter(canvasCtrl),
+              // We can safely add isComplex/willChange to guide Flutter's raster cache
+              isComplex: true, 
+              willChange: true,
             ),
           ),
         );
@@ -434,17 +501,59 @@ class LiveStrokePreview extends StatelessWidget {
 
 class _LiveStrokePreviewPainter extends CustomPainter {
   final CanvasController canvasCtrl;
+  
+  // Cache to prevent re-calculating 100 sine points 60 times a second
+  static List<DrawingPoint?>? _cachedPoints;
+  static Size? _lastSize;
 
   _LiveStrokePreviewPainter(this.canvasCtrl);
 
   List<DrawingPoint?> _getPreviewPoints(Size size) {
+    // Return cached geometry if size hasn't changed. We will only update paint colors later.
+    if (_cachedPoints != null && _lastSize == size) {
+      return _cachedPoints!;
+    }
+
     final List<DrawingPoint?> points = [];
     final w = size.width;
     final h = size.height;
 
+    // Create a beautiful tapered sine wave
+    for (double t = 0; t <= 1.0; t += 0.01) {
+      double x = w * 0.1 + t * (w * 0.8);
+      double y = h / 2 + math.sin(t * math.pi * 2) * (h * 0.25);
+      
+      // Tapering: Pressure is low at ends (0.1), high in middle (1.0)
+      double pressure = 0.1 + 0.9 * math.sin(t * math.pi);
+
+      // We attach a dummy paint here. The actual style will be applied in `paint` 
+      // dynamically without rebuilding the points array.
+      points.add(DrawingPoint(
+        Offset(x, y),
+        Paint(), 
+        pressure: pressure,
+        penType: canvasCtrl.currentPenType,
+        timestamp: DateTime.now().millisecondsSinceEpoch,
+        lineType: canvasCtrl.currentLineType,
+        smoothing: canvasCtrl.penSmoothing,
+        autoFill: canvasCtrl.penAutoFill,
+        simulatePressure: canvasCtrl.penPressureSensitivity,
+      ));
+    }
+    
+    _cachedPoints = points;
+    _lastSize = size;
+    return points;
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final points = _getPreviewPoints(size);
+    
     double effectiveStrokeWidth = canvasCtrl.strokeWidth;
     MaskFilter? effectiveMaskFilter;
 
+    // Apply specific logic per pen type dynamically
     switch (canvasCtrl.currentPenType) {
       case PenType.fountain:
         effectiveStrokeWidth = canvasCtrl.strokeWidth * 1.2;
@@ -462,43 +571,25 @@ class _LiveStrokePreviewPainter extends CustomPainter {
         break;
     }
 
-    for (double t = 0; t <= 1.0; t += 0.01) {
-      double x = w * 0.1 + t * (w * 0.8);
-      double y = h / 2 + math.sin(t * math.pi * 2) * (h * 0.25);
-      
-      // Smoothly vary pressure to demonstrate pressure sensitivity
-      double pressure = 0.3 + 0.7 * math.sin(t * math.pi);
-
-      final ptPaint = Paint()
-        ..color = canvasCtrl.selectedColor.withValues(alpha: canvasCtrl.penOpacity)
-        ..strokeWidth = effectiveStrokeWidth
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round
-        ..style = PaintingStyle.stroke;
-
-      if (effectiveMaskFilter != null) {
-        ptPaint.maskFilter = effectiveMaskFilter;
+    // Update the paint object of cached points with real-time slider values
+    for (var point in points) {
+      if (point != null) {
+        point.paint
+          ..color = canvasCtrl.selectedColor.withValues(alpha: canvasCtrl.penOpacity)
+          ..strokeWidth = effectiveStrokeWidth
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..style = PaintingStyle.stroke;
+          
+        if (effectiveMaskFilter != null) {
+          point.paint.maskFilter = effectiveMaskFilter;
+        } else {
+           // Clear mask filter if switching from brush back to pen
+           point.paint.maskFilter = null; 
+        }
       }
-
-      points.add(DrawingPoint(
-        Offset(x, y),
-        ptPaint,
-        pressure: pressure,
-        penType: canvasCtrl.currentPenType,
-        timestamp: DateTime.now().millisecondsSinceEpoch,
-        lineType: canvasCtrl.currentLineType,
-        smoothing: canvasCtrl.penSmoothing,
-        autoFill: canvasCtrl.penAutoFill,
-        simulatePressure: canvasCtrl.penPressureSensitivity,
-      ));
     }
-    return points;
-  }
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    final points = _getPreviewPoints(size);
-    // Use an empty PageTemplate since we don't need background rendering for the single stroke preview
     final painter = DrawingPainter(
       points,
       const PageTemplate(),
@@ -510,6 +601,7 @@ class _LiveStrokePreviewPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _LiveStrokePreviewPainter oldDelegate) {
-    return true; // Repaint since ListenableBuilder triggers rebuild anyway
+    // Only repaint if critical visual values changed
+    return true; 
   }
 }

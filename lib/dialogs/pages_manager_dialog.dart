@@ -20,6 +20,9 @@ class _PagesManagerDialogState extends State<PagesManagerDialog> with SingleTick
   late TabController _tabController;
   bool _isMultiSelectMode = false;
   final Set<int> _selectedPages = {};
+  
+  // توحيد اللون الأساسي للتطبيق لسهولة تغييره من مكان واحد
+  final Color primaryColor = const Color(0xFFFF7F6A);
 
   @override
   void initState() {
@@ -53,76 +56,83 @@ class _PagesManagerDialogState extends State<PagesManagerDialog> with SingleTick
   Widget build(BuildContext context) {
     final isDarkMode = widget.canvasCtrl.isDarkMode;
 
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.9,
-      decoration: BoxDecoration(
-        color: isDarkMode ? const Color(0xFF141414) : const Color(0xFFF7F7F9),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withAlpha(20), blurRadius: 40, spreadRadius: 0)
-        ],
-      ),
-      child: Stack(
-        children: [
-          Column(
-            children: [
-              // Sleek Drag Handle
-              Center(
-                child: Container(
-                  margin: const EdgeInsets.only(top: 16, bottom: 4),
-                  width: 48,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: isDarkMode ? Colors.white24 : Colors.black12,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
-              ),
-              
-              // Premium Header
-              _buildHeader(isDarkMode),
-
-              // Modern Custom Segmented Control
-              if (!_isMultiSelectMode)
-                 _buildSegmentedTabControl(isDarkMode),
-                
-              const SizedBox(height: 8),
-
-              // Divider
-              Divider(height: 1, color: isDarkMode ? Colors.white10 : Colors.black.withAlpha(15)),
-
-              // Tab Views
-              Expanded(
-                child: ListenableBuilder(
-                  listenable: widget.canvasCtrl,
-                  builder: (context, _) {
-                    return TabBarView(
-                      controller: _tabController,
-                      physics: _isMultiSelectMode ? const NeverScrollableScrollPhysics() : const BouncingScrollPhysics(),
-                      children: [
-                        _buildThumbnailsGrid(isDarkMode, onlyBookmarks: false),
-                        _buildOutlineView(isDarkMode),
-                        _buildThumbnailsGrid(isDarkMode, onlyBookmarks: true),
-                      ],
-                    );
-                  }
-                ),
-              ),
-              
-              // Spacer for the floating bottom bar
-              if (_isMultiSelectMode) const SizedBox(height: 90),
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      resizeToAvoidBottomInset: false,
+      body: Align(
+        alignment: Alignment.bottomCenter,
+        child: Container(
+          height: MediaQuery.of(context).size.height * 0.9,
+          decoration: BoxDecoration(
+            color: isDarkMode ? const Color(0xFF141414) : const Color(0xFFF7F7F9),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withAlpha(20), blurRadius: 40, spreadRadius: 0)
             ],
           ),
+          child: Stack(
+            children: [
+              Column(
+                children: [
+                  // Sleek Drag Handle
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 16, bottom: 4),
+                      width: 48,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: isDarkMode ? Colors.white24 : Colors.black12,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ),
+                  
+                  // Premium Header
+                  _buildHeader(isDarkMode),
 
-          // Floating MultiSelect Action Bar
-          if (_isMultiSelectMode)
-            Positioned(
-              bottom: 32,
-              left: 24,
-              right: 24,
-              child: _buildFloatingActionBar(isDarkMode),
-            ),
-        ],
+                  // Modern Custom Segmented Control
+                  if (!_isMultiSelectMode)
+                     _buildSegmentedTabControl(isDarkMode),
+                    
+                  const SizedBox(height: 8),
+
+                  // Divider
+                  Divider(height: 1, color: isDarkMode ? Colors.white10 : Colors.black.withAlpha(15)),
+
+                  // Tab Views
+                  Expanded(
+                    child: ListenableBuilder(
+                      listenable: widget.canvasCtrl,
+                      builder: (context, _) {
+                        return TabBarView(
+                          controller: _tabController,
+                          physics: _isMultiSelectMode ? const NeverScrollableScrollPhysics() : const BouncingScrollPhysics(),
+                          children: [
+                            _buildThumbnailsGrid(isDarkMode, onlyBookmarks: false),
+                            _buildOutlineView(isDarkMode),
+                            _buildThumbnailsGrid(isDarkMode, onlyBookmarks: true),
+                          ],
+                        );
+                      }
+                    ),
+                  ),
+                  
+                  // Spacer for the floating bottom bar
+                  if (_isMultiSelectMode) const SizedBox(height: 90),
+                ],
+              ),
+
+              // Floating MultiSelect Action Bar
+              if (_isMultiSelectMode)
+                Positioned(
+                  bottom: 32,
+                  left: 24,
+                  right: 24,
+                  child: _buildFloatingActionBar(isDarkMode),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -174,20 +184,24 @@ class _PagesManagerDialogState extends State<PagesManagerDialog> with SingleTick
                 : [],
           ),
           alignment: Alignment.center,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 16, color: isSelected ? const Color(0xFFFF7F6A) : (isDarkMode ? Colors.white54 : Colors.black54)),
-              const SizedBox(width: 8),
-              Text(
-                label, 
-                style: TextStyle(
-                  fontSize: 14, 
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600, 
-                  color: isSelected ? const Color(0xFFFF7F6A) : (isDarkMode ? Colors.white54 : Colors.black54)
-                )
-              ),
-            ],
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.center,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 16, color: isSelected ? primaryColor : (isDarkMode ? Colors.white54 : Colors.black54)),
+                const SizedBox(width: 8),
+                Text(
+                  label, 
+                  style: TextStyle(
+                    fontSize: 14, 
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w600, 
+                    color: isSelected ? primaryColor : (isDarkMode ? Colors.white54 : Colors.black54)
+                  )
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -208,6 +222,8 @@ class _PagesManagerDialogState extends State<PagesManagerDialog> with SingleTick
                   _isMultiSelectMode 
                     ? 'تم تحديد ${_selectedPages.length}' 
                     : 'إدارة الصفحات',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
@@ -218,59 +234,67 @@ class _PagesManagerDialogState extends State<PagesManagerDialog> with SingleTick
                 if (!_isMultiSelectMode)
                    Text(
                      'المستند يحتوي على ${widget.canvasCtrl.pagesPoints.length} صفحات',
+                     maxLines: 1,
+                     overflow: TextOverflow.ellipsis,
                      style: TextStyle(fontSize: 13, color: isDarkMode ? Colors.white54 : Colors.black54),
                    ),
               ],
             ),
           ),
-          Row(
-            children: [
-              if (!_isMultiSelectMode) ...[
-                _buildHeaderIcon(
-                  LucideIcons.checkSquare, 
-                  isDarkMode, 
-                  onTap: () {
-                    setState(() {
-                      _isMultiSelectMode = true;
-                      _selectedPages.clear();
-                    });
-                  },
-                  tooltip: 'تحديد متعدد'
-                ),
-                const SizedBox(width: 8),
-                _buildHeaderIcon(
-                  LucideIcons.plus, 
-                  isDarkMode, 
-                  color: const Color(0xFFFF7F6A),
-                  bgColor: const Color(0xFFFF7F6A).withAlpha(20),
-                  onTap: () {
-                    int targetIndex = widget.canvasCtrl.currentPageIndex + 1;
-                    widget.canvasCtrl.addBlankPageAt(targetIndex);
-                    widget.canvasCtrl.jumpToPage(targetIndex);
-                  },
-                  tooltip: 'إضافة صفحة فارغة'
-                ),
-                const SizedBox(width: 8),
-                _buildHeaderIcon(
-                  LucideIcons.x, 
-                  isDarkMode, 
-                  onTap: () => Navigator.pop(context),
-                  bgColor: isDarkMode ? Colors.white10 : Colors.black.withAlpha(10),
-                ),
-              ] else ...[
-                TextButton(
-                  onPressed: () => setState(() {
-                    _isMultiSelectMode = false;
-                    _selectedPages.clear();
-                  }),
-                  style: TextButton.styleFrom(
-                    foregroundColor: isDarkMode ? Colors.white70 : Colors.black54,
-                    textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-                  ),
-                  child: const Text('إلغاء'),
-                ),
-              ]
-            ],
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Row(
+                children: [
+                  if (!_isMultiSelectMode) ...[
+                    _buildHeaderIcon(
+                      LucideIcons.checkSquare, 
+                      isDarkMode, 
+                      onTap: () {
+                        setState(() {
+                          _isMultiSelectMode = true;
+                          _selectedPages.clear();
+                        });
+                      },
+                      tooltip: 'تحديد متعدد'
+                    ),
+                    const SizedBox(width: 8),
+                    _buildHeaderIcon(
+                      LucideIcons.plus, 
+                      isDarkMode, 
+                      color: primaryColor,
+                      bgColor: primaryColor.withAlpha(20),
+                      onTap: () {
+                        int targetIndex = widget.canvasCtrl.currentPageIndex + 1;
+                        widget.canvasCtrl.addBlankPageAt(targetIndex);
+                        widget.canvasCtrl.jumpToPage(targetIndex);
+                      },
+                      tooltip: 'إضافة صفحة فارغة'
+                    ),
+                    const SizedBox(width: 8),
+                    _buildHeaderIcon(
+                      LucideIcons.x, 
+                      isDarkMode, 
+                      onTap: () => Navigator.pop(context),
+                      bgColor: isDarkMode ? Colors.white10 : Colors.black.withAlpha(10),
+                    ),
+                  ] else ...[
+                    TextButton(
+                      onPressed: () => setState(() {
+                        _isMultiSelectMode = false;
+                        _selectedPages.clear();
+                      }),
+                      style: TextButton.styleFrom(
+                        foregroundColor: isDarkMode ? Colors.white70 : Colors.black54,
+                        textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                      ),
+                      child: const Text('إلغاء'),
+                    ),
+                  ]
+                ],
+              ),
+            ),
           )
         ],
       ),
@@ -305,30 +329,39 @@ class _PagesManagerDialogState extends State<PagesManagerDialog> with SingleTick
     }
 
     if (validIndices.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: isDarkMode ? Colors.white.withAlpha(10) : Colors.black.withAlpha(5),
-                shape: BoxShape.circle,
+      // [إصلاح أحمر]: استخدام CustomScrollView لمنع انهيار TabBarView
+      return CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+        slivers: [
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: isDarkMode ? Colors.white.withAlpha(10) : Colors.black.withAlpha(5),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(onlyBookmarks ? LucideIcons.bookmarkMinus : LucideIcons.fileX, size: 48, color: isDarkMode ? Colors.white54 : Colors.black38),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    onlyBookmarks ? 'لا توجد صفحات مفضلة' : 'المستند فارغ',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white70 : Colors.black87),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    onlyBookmarks ? 'المس رمز العلامة المرجعية أعلى الصفحة لحفظها' : 'اضغط على + لإضافة صفحة جديدة',
+                    style: TextStyle(color: isDarkMode ? Colors.white54 : Colors.black54),
+                  ),
+                ],
               ),
-              child: Icon(onlyBookmarks ? LucideIcons.bookmarkMinus : LucideIcons.fileX, size: 48, color: isDarkMode ? Colors.white54 : Colors.black38),
             ),
-            const SizedBox(height: 24),
-            Text(
-              onlyBookmarks ? 'لا توجد صفحات مفضلة' : 'المستند فارغ',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white70 : Colors.black87),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              onlyBookmarks ? 'المس رمز العلامة المرجعية أعلى الصفحة لحفظها' : 'اضغط على + لإضافة صفحة جديدة',
-              style: TextStyle(color: isDarkMode ? Colors.white54 : Colors.black54),
-            ),
-          ],
-        ),
+          ),
+        ],
       );
     }
 
@@ -396,13 +429,13 @@ class _PagesManagerDialogState extends State<PagesManagerDialog> with SingleTick
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: isSelected 
-                  ? const Color(0xFFFF7F6A) 
+                  ? primaryColor 
                   : (isCurrent ? Colors.blue.withAlpha(120) : (isDarkMode ? Colors.white10 : Colors.black12)),
               width: isSelected || isCurrent ? 2 : 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: isSelected ? const Color(0xFFFF7F6A).withAlpha(40) : Colors.black.withAlpha(isDarkMode ? 30 : 5),
+                color: isSelected ? primaryColor.withAlpha(40) : Colors.black.withAlpha(isDarkMode ? 30 : 5),
                 blurRadius: isSelected ? 16 : 12,
                 spreadRadius: isSelected ? 2 : 0,
                 offset: const Offset(0, 4),
@@ -424,7 +457,7 @@ class _PagesManagerDialogState extends State<PagesManagerDialog> with SingleTick
                       if (isSelected)
                         AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
-                          color: const Color(0xFFFF7F6A).withAlpha(20),
+                          color: primaryColor.withAlpha(20),
                         ),
                     ],
                   ),
@@ -467,9 +500,9 @@ class _PagesManagerDialogState extends State<PagesManagerDialog> with SingleTick
                         duration: const Duration(milliseconds: 200),
                         child: Container(
                           decoration: BoxDecoration(
-                            color: isSelected ? const Color(0xFFFF7F6A) : (isDarkMode ? Colors.black54 : Colors.white70),
+                            color: isSelected ? primaryColor : (isDarkMode ? Colors.black54 : Colors.white70),
                             shape: BoxShape.circle,
-                            border: Border.all(color: isSelected ? const Color(0xFFFF7F6A) : Colors.grey.withAlpha(100), width: 1.5),
+                            border: Border.all(color: isSelected ? primaryColor : Colors.grey.withAlpha(100), width: 1.5),
                           ),
                           padding: const EdgeInsets.all(4),
                           child: Icon(Icons.check, size: 14, color: isSelected ? Colors.white : Colors.transparent),
@@ -500,35 +533,46 @@ class _PagesManagerDialogState extends State<PagesManagerDialog> with SingleTick
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        // Glassmorphic badge for page number
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withAlpha(40),
-                                border: Border.all(color: Colors.white.withAlpha(50), width: 0.5),
-                              ),
-                              child: Text(
-                                '${index + 1}',
-                                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13),
+                        Flexible(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.bottomLeft,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: BackdropFilter(
+                                filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withAlpha(40),
+                                    border: Border.all(color: Colors.white.withAlpha(50), width: 0.5),
+                                  ),
+                                  child: Text(
+                                    '${index + 1}',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13),
+                                  ),
+                                ),
                               ),
                             ),
                           ),
                         ),
                         
                         if (!_isMultiSelectMode)
-                          GestureDetector(
-                            onTapDown: (details) => _showBeautifulContextMenu(context, index, details.globalPosition, isDarkMode),
-                            child: Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withAlpha(30),
-                                shape: BoxShape.circle,
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.bottomRight,
+                              child: GestureDetector(
+                                onTapDown: (details) => _showBeautifulContextMenu(context, index, details.globalPosition, isDarkMode),
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withAlpha(30),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(LucideIcons.moreHorizontal, size: 18, color: Colors.white),
+                                ),
                               ),
-                              child: const Icon(LucideIcons.moreHorizontal, size: 18, color: Colors.white),
                             ),
                           ),
                       ],
@@ -583,36 +627,44 @@ class _PagesManagerDialogState extends State<PagesManagerDialog> with SingleTick
   Widget _buildLazyThumbnail(int index, bool isDarkMode) {
     final cachedBytes = widget.canvasCtrl.pageThumbnails[index];
     if (cachedBytes != null) {
-      return Image.memory(cachedBytes, fit: BoxFit.cover);
+      // [إصلاح أداء]: استخدام cacheWidth لمنع امتلاء الرام بصور ضخمة
+      return Image.memory(
+        cachedBytes, 
+        fit: BoxFit.cover,
+        cacheWidth: 400, 
+      );
     }
 
-    return ClipRect(
-      child: FittedBox(
-        fit: BoxFit.contain,
-        alignment: Alignment.center,
-        child: Container(
-          width: 700,
-          height: 900,
-          color: isDarkMode ? Colors.black : Colors.white,
-          child: Stack(
-            children: [
-               if (widget.canvasCtrl.pdfDocument != null && widget.canvasCtrl.pdfPageMapping[index] != null)
-                 Positioned.fill(
-                   child: PdfPageBackground(
-                     document: widget.canvasCtrl.pdfDocument!,
-                     pageNumber: widget.canvasCtrl.pdfPageMapping[index]!,
+    return RepaintBoundary( // [إصلاح أداء]: فصل رسم المصغرات المباشرة عن الـ Main Thread
+      child: ClipRect(
+        child: FittedBox(
+          fit: BoxFit.contain,
+          alignment: Alignment.center,
+          child: Container(
+            width: 700,
+            height: 900,
+            color: isDarkMode ? Colors.black : Colors.white,
+            child: Stack(
+              children: [
+                 if (widget.canvasCtrl.pdfDocument != null && widget.canvasCtrl.pdfPageMapping[index] != null)
+                   Positioned.fill(
+                     child: PdfPageBackground(
+                       document: widget.canvasCtrl.pdfDocument!,
+                       pageNumber: widget.canvasCtrl.pdfPageMapping[index]!,
+                     ),
                    ),
+                 CustomPaint(
+                    size: const Size(700, 900),
+                    isComplex: true, // تلميح للـ Engine أن الرسم معقد
+                    painter: ThumbnailVectorPainter(
+                      widget.canvasCtrl.pagesPoints[index],
+                      widget.canvasCtrl.pagesShapes[index],
+                      widget.canvasCtrl.pagesTables[index],
+                      isDarkMode: isDarkMode,
+                    ),
                  ),
-               CustomPaint(
-                  size: const Size(700, 900),
-                  painter: ThumbnailVectorPainter(
-                    widget.canvasCtrl.pagesPoints[index],
-                    widget.canvasCtrl.pagesShapes[index],
-                    widget.canvasCtrl.pagesTables[index],
-                    isDarkMode: isDarkMode,
-                  ),
-               ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -662,7 +714,7 @@ class _PagesManagerDialogState extends State<PagesManagerDialog> with SingleTick
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFF7F6A),
+              backgroundColor: primaryColor,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               elevation: 0,
@@ -694,30 +746,39 @@ class _PagesManagerDialogState extends State<PagesManagerDialog> with SingleTick
     }
 
     if (outlineEntries.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: isDarkMode ? Colors.white.withAlpha(10) : Colors.black.withAlpha(5),
-                shape: BoxShape.circle,
+      // [إصلاح أحمر]: وضع الـ Center داخل CustomScrollView لمنع أخطاء الـ TabBarView
+      return CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+        slivers: [
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: isDarkMode ? Colors.white.withAlpha(10) : Colors.black.withAlpha(5),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(LucideIcons.list, size: 48, color: isDarkMode ? Colors.white54 : Colors.black38),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'لا يوجد مخطط مضاف',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white70 : Colors.black87),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'أضف المخططات عبر خيارات الصفحة لسهولة التنقل',
+                    style: TextStyle(color: isDarkMode ? Colors.white54 : Colors.black54),
+                  ),
+                ],
               ),
-              child: Icon(LucideIcons.list, size: 48, color: isDarkMode ? Colors.white54 : Colors.black38),
             ),
-            const SizedBox(height: 24),
-            Text(
-              'لا يوجد مخطط مضاف',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white70 : Colors.black87),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'أضف المخططات عبر خيارات الصفحة لسهولة التنقل',
-              style: TextStyle(color: isDarkMode ? Colors.white54 : Colors.black54),
-            ),
-          ],
-        ),
+          ),
+        ],
       );
     }
 
@@ -762,12 +823,12 @@ class _PagesManagerDialogState extends State<PagesManagerDialog> with SingleTick
                   height: 40,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFF7F6A).withAlpha(20),
+                    color: primaryColor.withAlpha(20),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
                     '${index + 1}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: const Color(0xFFFF7F6A)),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: primaryColor),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -844,7 +905,9 @@ class _PagesManagerDialogState extends State<PagesManagerDialog> with SingleTick
                  color: Colors.redAccent,
                  isDarkMode: isDarkMode,
                  onTap: _selectedPages.isEmpty ? null : () {
-                   widget.canvasCtrl.deleteSelectedPages(_selectedPages.toList());
+                   // [إصلاح أمان المصفوفة]: الترتيب التنازلي لمنع تضارب الإندكسات أثناء الحذف
+                   final sorted = _selectedPages.toList()..sort((a, b) => b.compareTo(a));
+                   widget.canvasCtrl.deleteSelectedPages(sorted);
                    setState(() {
                      _isMultiSelectMode = false;
                      _selectedPages.clear();

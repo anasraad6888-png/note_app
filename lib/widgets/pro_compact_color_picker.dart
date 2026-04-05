@@ -5,6 +5,19 @@ class ProCompactColorPicker extends StatefulWidget {
   final Color pickerColor;
   final ValueChanged<Color> onColorChanged;
 
+  static const List<Color> curatedColors = [
+    // Greys / Neutrals
+    Color(0xFF000000), Color(0xFF334155), Color(0xFF64748B), Color(0xFF94A3B8), Color(0xFFE2E8F0), Color(0xFFFFFFFF),
+    // Reds/Oranges
+    Color(0xFF7F1D1D), Color(0xFFDC2626), Color(0xFFF87171), Color(0xFFC2410C), Color(0xFFF97316), Color(0xFFFB923C),
+    // Yellows/Greens
+    Color(0xFF854D0E), Color(0xFFEAB308), Color(0xFFFDE047), Color(0xFF14532D), Color(0xFF16A34A), Color(0xFF4ADE80),
+    // Blues
+    Color(0xFF1E3A8A), Color(0xFF2563EB), Color(0xFF60A5FA), Color(0xFF0C4A6E), Color(0xFF0284C7), Color(0xFF38BDF8),
+    // Purples/Pinks
+    Color(0xFF3B0764), Color(0xFF9333EA), Color(0xFFD8B4FE), Color(0xFF831843), Color(0xFFDB2777), Color(0xFFF472B6),
+  ];
+
   const ProCompactColorPicker({
     super.key,
     required this.pickerColor,
@@ -18,19 +31,6 @@ class ProCompactColorPicker extends StatefulWidget {
 class _ProCompactColorPickerState extends State<ProCompactColorPicker> {
   late HSVColor currentHsvColor;
   late TextEditingController hexController;
-
-  static const List<Color> curatedColors = [
-    // Greys / Neutrals
-    Color(0xFF000000), Color(0xFF334155), Color(0xFF64748B), Color(0xFF94A3B8), Color(0xFFE2E8F0), Color(0xFFFFFFFF),
-    // Reds/Oranges
-    Color(0xFF7F1D1D), Color(0xFFDC2626), Color(0xFFF87171), Color(0xFFC2410C), Color(0xFFF97316), Color(0xFFFB923C),
-    // Yellows/Greens
-    Color(0xFF854D0E), Color(0xFFEAB308), Color(0xFFFDE047), Color(0xFF14532D), Color(0xFF16A34A), Color(0xFF4ADE80),
-    // Blues
-    Color(0xFF1E3A8A), Color(0xFF2563EB), Color(0xFF60A5FA), Color(0xFF0C4A6E), Color(0xFF0284C7), Color(0xFF38BDF8),
-    // Purples/Pinks
-    Color(0xFF3B0764), Color(0xFF9333EA), Color(0xFFD8B4FE), Color(0xFF831843), Color(0xFFDB2777), Color(0xFFF472B6),
-  ];
 
   @override
   void initState() {
@@ -204,9 +204,9 @@ class _ProCompactColorPickerState extends State<ProCompactColorPicker> {
                 crossAxisSpacing: 10,
                 mainAxisSpacing: 10,
               ),
-              itemCount: curatedColors.length,
+              itemCount: ProCompactColorPicker.curatedColors.length,
               itemBuilder: (context, index) {
-                final color = curatedColors[index];
+                final color = ProCompactColorPicker.curatedColors[index];
                 final isSelected = currentHsvColor.toColor().value == color.value;
                 
                 return GestureDetector(

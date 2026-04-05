@@ -472,7 +472,7 @@ class _MainScreenState extends State<MainScreen> {
         padding: EdgeInsets.only(top: Platform.isMacOS ? 32.0 : 0.0),
         child: Row(
           children: [
-          if (showFileManager)
+          if (showFileManager && MediaQuery.of(context).size.width >= 450)
             Container(
               width: 260,
               decoration: BoxDecoration(
